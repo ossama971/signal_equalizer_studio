@@ -60,6 +60,14 @@ class MainWindow(uiclass, baseclass):
         self.plot_input_spectrogram()
 
     def plot_input_spectrogram(self):
+        frequencies, fourier_transform = self.apply_fourier_transform()
+        pen_c = pg.mkPen(color=(255, 255, 255))
+        self.input_spectrogram_graph.plot(frequencies, abs(fourier_transform), pen=pen_c)
+
+        # plot initial output spectrogram
+        self.output_spectrogram_graph.plot(frequencies, abs(fourier_transform), pen=pen_c)
+
+    def apply_fourier_transform(self):
         if self.signal.audio:
             sampling_frequency = self.signal.audio.frame_rate
         else:
@@ -69,7 +77,6 @@ class MainWindow(uiclass, baseclass):
         fourier_transform = np.fft.fft(amplitude) / len(amplitude)  # Normalize amplitude
 
         fourier_transform = fourier_transform[range(int(len(amplitude) / 2))]  # Exclude sampling frequency
-
         tp_count = len(amplitude)
 
         values = np.arange(int(tp_count / 2))
@@ -77,15 +84,8 @@ class MainWindow(uiclass, baseclass):
         time_period = tp_count / sampling_frequency
 
         frequencies = values / time_period
-        pen_c = pg.mkPen(color=(255, 255, 255))
-        self.input_spectrogram_graph.plot(frequencies, abs(fourier_transform), pen=pen_c)
 
-        # plot initial output spectrogram
-        self.output_spectrogram_graph.plot(frequencies, abs(fourier_transform), pen=pen_c)
-
-
-
-
+        return frequencies, fourier_transform
 
     def play_audio(self):
         if self.signal.audio:
