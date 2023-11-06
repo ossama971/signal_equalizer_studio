@@ -648,7 +648,7 @@ QlistView{
     <item>
      <layout class="QHBoxLayout" name="spectograms_container" stretch="2,1,2">
       <item>
-       <widget class="PlotWidget" name="input_spectogram_graph" native="true">
+       <widget class="PlotWidget" name="input_spectrogram_graph" native="true">
         <property name="minimumSize">
          <size>
           <width>0</width>
@@ -812,7 +812,7 @@ QlistView{
        </layout>
       </item>
       <item>
-       <widget class="PlotWidget" name="output_spectogram_graph" native="true">
+       <widget class="PlotWidget" name="output_spectrogram_graph" native="true">
         <property name="minimumSize">
          <size>
           <width>0</width>
