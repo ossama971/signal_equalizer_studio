@@ -69,17 +69,6 @@ class MainWindow(uiclass, baseclass):
         self.frequency_graph.plot(frequencies, abs(fourier_transform), pen=pen_c)
 
     def plot_input_spectrograph(self):
-        """
-        Plot the spectrogram of a signal.
-
-        Parameters:
-        - time (numpy array): Array representing the time values.
-        - amplitude (numpy array): Array representing the amplitude values.
-        - sampling_rate (float, optional): The sampling rate of the signal. Default is 1.0.
-        - title (str, optional): Title of the plot. Default is 'Spectrogram'.
-        - xlabel (str, optional): Label for the x-axis. Default is 'Time'.
-        - ylabel (str, optional): Label for the y-axis. Default is 'Frequency'.
-        """
         # Compute the spectrogram using scipy's spectrogram function
         amplitude = self.signal.y_vec
         sampling_rate = self.signal.get_sampling_frequency()
@@ -87,9 +76,9 @@ class MainWindow(uiclass, baseclass):
 
         # Plot the spectrogram
         plt.pcolormesh(t, f, 10 * np.log10(Sxx), shading='auto')
-        # plt.title(title)
-        # plt.xlabel(xlabel)
-        # plt.ylabel(ylabel)
+        plt.title('Spectrograph')
+        plt.xlabel('time')
+        plt.ylabel('frequency')
         plt.colorbar(label='Intensity (dB)')  # Add colorbar
 
         # Show the plot
