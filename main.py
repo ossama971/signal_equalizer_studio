@@ -75,6 +75,7 @@ class MainWindow(uiclass, baseclass):
         f, t, Sxx = spectrogram(amplitude, fs=sampling_rate)
 
         # Plot the spectrogram
+        np.seterr(divide='ignore')
         plt.pcolormesh(t, f, 10 * np.log10(Sxx), shading='auto')
         plt.title('Spectrograph')
         plt.xlabel('time')
