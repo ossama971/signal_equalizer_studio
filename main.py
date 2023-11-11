@@ -57,15 +57,13 @@ class MainWindow(uiclass, baseclass):
             f'{str(math.floor(self.signal.x_vec[-1] / 60)).zfill(2)}:{str(math.floor(self.signal.x_vec[-1]) % 60).zfill(2)}')
 
         # plot input spectrogram
-        self.plot_input_spectrogram()
+        self.plot_input_frequency()
 
-    def plot_input_spectrogram(self):
+    def plot_input_frequency(self):
         frequencies, fourier_transform = self.apply_fourier_transform()
         pen_c = pg.mkPen(color=(255, 255, 255))
-        self.input_spectrogram_graph.plot(frequencies, abs(fourier_transform), pen=pen_c)
+        self.frequency_graph.plot(frequencies, abs(fourier_transform), pen=pen_c)
 
-        # plot initial output spectrogram
-        self.output_spectrogram_graph.plot(frequencies, abs(fourier_transform), pen=pen_c)
 
     def apply_fourier_transform(self):
         if self.signal.audio:
