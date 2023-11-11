@@ -9,6 +9,7 @@ import numpy as np
 import math
 from PyQt6.QtCore import QTimer
 from scipy.signal import spectrogram
+import matplotlib.pyplot as plt
 
 from helpers.get_signal_from_file import get_signal_from_file
 from models.signal import Signal
@@ -56,13 +57,43 @@ class MainWindow(uiclass, baseclass):
         self.input_total_time.setText(
             f'{str(math.floor(self.signal.x_vec[-1] / 60)).zfill(2)}:{str(math.floor(self.signal.x_vec[-1]) % 60).zfill(2)}')
 
-        # plot input spectrogram
+        # plot input frequency graph
         self.plot_input_frequency()
+
+        # plot input spectrograph
+        self.plot_input_spectrograph()
 
     def plot_input_frequency(self):
         frequencies, fourier_transform = self.apply_fourier_transform()
         pen_c = pg.mkPen(color=(255, 255, 255))
         self.frequency_graph.plot(frequencies, abs(fourier_transform), pen=pen_c)
+
+    def plot_input_spectrograph(self):
+        """
+        Plot the spectrogram of a signal.
+
+        Parameters:
+        - time (numpy array): Array representing the time values.
+        - amplitude (numpy array): Array representing the amplitude values.
+        - sampling_rate (float, optional): The sampling rate of the signal. Default is 1.0.
+        - title (str, optional): Title of the plot. Default is 'Spectrogram'.
+        - xlabel (str, optional): Label for the x-axis. Default is 'Time'.
+        - ylabel (str, optional): Label for the y-axis. Default is 'Frequency'.
+        """
+        # Compute the spectrogram using scipy's spectrogram function
+        amplitude = self.signal.y_vec
+        sampling_rate = self.signal.get_sampling_frequency()
+        f, t, Sxx = spectrogram(amplitude, fs=sampling_rate)
+
+        # Plot the spectrogram
+        plt.pcolormesh(t, f, 10 * np.log10(Sxx), shading='auto')
+        # plt.title(title)
+        # plt.xlabel(xlabel)
+        # plt.ylabel(ylabel)
+        plt.colorbar(label='Intensity (dB)')  # Add colorbar
+
+        # Show the plot
+        plt.show()
 
 
     def apply_fourier_transform(self):
@@ -94,7 +125,7 @@ class MainWindow(uiclass, baseclass):
             self.current_timer.stop()
             self.playing = False
             final_index = np.abs(self.signal.x_vec - self.current_time).argmin()
-            if (final_index >= len(self.signal.x_vec) - 100):
+            if final_index >= len(self.signal.x_vec) - 100:
                 self.input_play_button.setText('Rewind')
                 self.current_time = 0;
 
