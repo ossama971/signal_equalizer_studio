@@ -1,1 +1,1 @@
-extend
+x_vec = np.arange(0, original_length) / original_sampling_rate
