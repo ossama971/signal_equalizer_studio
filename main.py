@@ -68,7 +68,16 @@ class MainWindow(uiclass, baseclass):
         pen_c = pg.mkPen(color=(255, 255, 255))
         self.frequency_graph.plot(frequencies, abs(fourier_transform), pen=pen_c)
 
+    def generatePgColormap(self, cm_name):
+        colormap = plt.get_cmap(cm_name)
+        colormap._init()
+        lut = (colormap._lut * 255).view(np.ndarray)  # Convert matplotlib colormap from 0-1 to 0 -255 for Qt
+        return lut
+
+
     def plot_input_spectrograph(self):
+
+
         # Compute the spectrogram using scipy's spectrogram function
         amplitude = self.signal.y_vec
         sampling_rate = self.signal.get_sampling_frequency()
@@ -76,89 +85,28 @@ class MainWindow(uiclass, baseclass):
 
         # Plot the spectrogram
         np.seterr(divide='ignore')
-        plt.pcolormesh(t, f, 10 * np.log10(Sxx), shading='auto')
+        plt.pcolormesh(10 * np.log10(Sxx), shading='auto')
         plt.title('Spectrograph')
         plt.xlabel('time')
         plt.ylabel('frequency')
         plt.colorbar(label='Intensity (dB)')  # Add colorbar
 
-        # Show the plot
-        plt.show()
         self.input_spectrogram_graph.clear()
 
         # Create an ImageItem to display the spectrogram
         spectrogram_image = pg.ImageItem()
-        self.input_spectrogram_graph.addItem(spectrogram_image)
+
+        lut = self.generatePgColormap('viridis')
+        spectrogram_image.setLookupTable(lut)
 
         # Set the spectrogram data and scaling
-        spectrogram_image.setImage(Sxx.T, autoLevels=True, autoDownsample=True)
-
-        # Set custom color map (adjust colors as needed)
-        colormap = pg.ColorMap([0, 0.5, 1], [(0, 0, 255), (0, 255, 0), (0, 255, 0)])
-        spectrogram_image.setColorMap(colormap)
+        spectrogram_image.setImage(10 * np.log10(Sxx.T), autoLevels=True, autoDownsample=True)
+        self.input_spectrogram_graph.addItem(spectrogram_image)
 
         # Set labels for the axes
         self.input_spectrogram_graph.setLabel('left', 'Frequency', units='Hz')
         self.input_spectrogram_graph.setLabel('bottom', 'Time', units='s')
 
-
-        # # Clear any previous plots from the PlotWidget
-        # self.input_spectrogram_graph.clear()
-        #
-        # # Create an ImageItem to display the spectrogram
-        # spectrogram_image = pg.ImageItem()
-        # self.input_spectrogram_graph.addItem(spectrogram_image)
-        #
-        # # Set the spectrogram data and scaling
-        # spectrogram_image.setImage(Sxx)
-        # # spectrogram_image.setScale((t[-1] - t[0]) / len(t), (f[-1] - f[0]) / len(f))
-        # # spectrogram_image.setScaleX((t[-1] - t[0]) / len(t))
-        # # spectrogram_image.setScaleY((f[-1] - f[0]) / len(f))
-        # spectrogram_image.setAspectLock(True)
-        # spectrogram_image.setScale((t[-1] - t[0]) / len(t))
-        #
-        # # Set labels for the axes
-        # self.input_spectrogram_graph.setLabel('left', 'Frequency', units='Hz')
-        # self.input_spectrogram_graph.setLabel('bottom', 'Time', units='s')
-        #
-
-
-
-
-        #
-        # amplitude = self.signal.y_vec
-        # sampling_rate = self.signal.get_sampling_frequency()
-        # f, t, Sxx = spectrogram(amplitude, fs=sampling_rate)
-        #
-        # np.seterr(divide='ignore')
-        #
-        # # Plot using Matplotlib
-        # plt.pcolormesh(t, f, 10 * np.log10(Sxx), shading='auto')
-        # plt.title('Spectrogram')
-        # plt.xlabel('Time')
-        # plt.ylabel('Frequency')
-        # plt.colorbar(label='Intensity (dB)')
-        #
-        # # Clear previous plots from the PyQtGraph PlotWidget
-        # self.input_spectrogram_graph.clear()
-        #
-        # # Create an ImageItem to display the spectrogram
-        # spectrogram_image = pg.ImageItem()
-        # self.input_spectrogram_graph.addItem(spectrogram_image)
-        #
-        # # Set the spectrogram data and scaling
-        # spectrogram_image.setImage(Sxx)
-        #
-        # # Set aspect ratio
-        # spectrogram_image.setAspectLocked()
-        #
-        # # Set custom color map (adjust colors as needed)
-        # colormap = pg.ColorMap([0, 0.5, 1], [(0, 0, 0), (255, 20, 99), (82, 4, 2)])
-        # spectrogram_image.setColorMap(colormap)
-        #
-        # # Set labels for the axes
-        # self.input_spectrogram_graph.setLabel('left', 'Frequency', units='Hz')
-        # self.input_spectrogram_graph.setLabel('bottom', 'Time', units='s')
 
     def apply_fourier_transform(self):
         if self.signal.audio:
