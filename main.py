@@ -26,6 +26,9 @@ class MainWindow(uiclass, baseclass):
         self._initialize_signals_slots()
         self.signal = None
         self.playing = False
+        self.output = None
+        self.frequencies = None
+        self.fourier_transform = None
         self.last_index = 0
         self.current_timer = QTimer()
         self.current_timer.timeout.connect(self.update_current_timer)
@@ -35,6 +38,7 @@ class MainWindow(uiclass, baseclass):
         self.import_action.triggered.connect(self._import_signal_file)
         self.input_play_button.pressed.connect(self.play_time_signal)
         self.input_slider.valueChanged.connect(self._on_input_slider_change)
+        self.control_slider_1.valueChanged.connect(self.generate_output_signal)
 
     def _on_input_slider_change(self, value):
         if self.signal:
@@ -49,7 +53,7 @@ class MainWindow(uiclass, baseclass):
         self.input_signal_graph.plot(self.signal.x_vec, self.signal.y_vec, pen=pen_c)
 
         # plot initial output time graph
-        self.output_signal_graph.plot(self.signal.x_vec, self.signal.y_vec, pen=pen_c)
+        # self.output_signal_graph.plot(self.signal.x_vec, self.signal.y_vec, pen=pen_c) 
 
         self.input_slider.setMinimum(0)
         self.input_slider.setMaximum(int(self.signal.x_vec[-1] * 1000))
@@ -64,9 +68,9 @@ class MainWindow(uiclass, baseclass):
         self.plot_input_spectrograph()
 
     def plot_input_frequency(self):
-        frequencies, fourier_transform = self.apply_fourier_transform()
+        self.frequencies, self.fourier_transform = self.apply_fourier_transform()
         pen_c = pg.mkPen(color=(255, 255, 255))
-        self.frequency_graph.plot(frequencies, abs(fourier_transform), pen=pen_c)
+        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform), pen=pen_c)
 
     def generatePgColormap(self, cm_name):
         colormap = plt.get_cmap(cm_name)
@@ -164,6 +168,24 @@ class MainWindow(uiclass, baseclass):
         self.input_slider.setValue(math.ceil(self.current_time * 1000))
         self.input_slider.blockSignals(False)
         self.input_slider.repaint()
+
+
+    def generate_output_signal(self):
+        self.output_signal_graph.clear()
+        pen_c = pg.mkPen(color=(255, 255, 255))
+        #generate output using inverse fourier transform of self.frequency and self.fourier_transform
+        self.output = np.fft.ifft(self.fourier_transform) * len(self.signal.y_vec)
+        self.output = self.output.real  # take the real part of the complex numbers
+
+        # Ensure that self.signal.x_vec and self.output have the same shape
+        min_length = min(len(self.signal.x_vec), len(self.output))
+        self.signal.x_vec = self.signal.x_vec[:min_length]
+        self.output = self.output[:min_length]
+
+        self.output_signal_graph.plot(self.signal.x_vec, self.output, pen=pen_c)
+        self.output_signal_graph.repaint()
+
+        
 
 
 def main():
