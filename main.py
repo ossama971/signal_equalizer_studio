@@ -195,13 +195,7 @@ class MainWindow(uiclass, baseclass):
         if self.fourier_transform is not None:
             y_vec = np.fft.ifft(self.fourier_transform).real  # take the real part of the complex numbers
 
-            # Ensure the time axis matches the original signal's duration
-
-            # Truncate or zero-pad to match the original duration
-            if len(y_vec) > len(self.signal.y_vec):
-                y_vec = y_vec[:len(self.signal.y_vec)]
-            else:
-                y_vec = np.pad(y_vec, (0, len(self.signal.y_vec) - len(y_vec)))
+           
 
             x_vec = np.arange(0, len(y_vec)) / self.signal.get_sampling_frequency()
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
@@ -215,10 +209,16 @@ class MainWindow(uiclass, baseclass):
             audio = AudioSegment(
                 y_vec.astype(np.int16).tobytes(),
                 frame_rate=self.signal.audio.frame_rate,
-                sample_width=4,
+                sample_width=1,
                 channels=1  
             )
             self.output = Signal(x_vec, y_vec, audio)
+            self.output_slider.setMinimum(0)
+            self.output_slider.setMaximum(int(self.output.x_vec[-1] * 1000))
+            self.output_slider.setValue(0)
+            self.output_total_time.setText(
+            f'{str(math.floor(self.output.x_vec[-1] / 60)).zfill(2)}:{str(math.floor(self.output.x_vec[-1]) % 60).zfill(2)}')
+
 
 
     
@@ -226,7 +226,7 @@ class MainWindow(uiclass, baseclass):
         if self.output.audio:
             self.output_playing = True
             final_index = np.abs(self.output.x_vec - self.output_current_time).argmin()
-            sd.play(self.output.y_vec[final_index:], self.signal.audio.frame_rate * 2)
+            sd.play(self.output.y_vec[final_index:], self.output.audio.frame_rate * 2)
             sd.wait()
             self.output_current_timer.stop()
             self.output_playing = False
