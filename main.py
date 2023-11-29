@@ -44,7 +44,7 @@ class MainWindow(uiclass, baseclass):
     def _initialize_signals_slots(self):
         self.import_action.triggered.connect(self._import_signal_file)
         self.input_play_button.pressed.connect(self.play_time_signal)
-        self.output_play_button.pressed.connect(self.play_output_audio)
+        self.output_play_button.pressed.connect(self.play_time_output)
         self.input_slider.valueChanged.connect(self._on_input_slider_change)
         self.output_slider.valueChanged.connect(self._on_output_slider_change)
         self.control_slider_1.valueChanged.connect(self.generate_output_signal)
@@ -136,11 +136,12 @@ class MainWindow(uiclass, baseclass):
         # Frequency domain representation
         amplitude = self.signal.y_vec
         fourier_transform = np.fft.fft(amplitude) / len(amplitude)  # Normalize amplitude
-
-        fourier_transform = fourier_transform[range(int(len(amplitude) / 2))]  # Exclude sampling frequency
+        
+        # fourier_transform = fourier_transform[range(int(len(amplitude) / 2))]  # Exclude sampling frequency
+        
         tp_count = len(amplitude)
 
-        values = np.arange(int(tp_count / 2))
+        values = np.arange(int(tp_count))
 
         time_period = tp_count / sampling_frequency
 
@@ -194,10 +195,10 @@ class MainWindow(uiclass, baseclass):
         # Generate output using inverse Fourier transform of self.frequency and self.fourier_transform
         if self.fourier_transform is not None:
             y_vec = np.fft.ifft(self.fourier_transform).real  # take the real part of the complex numbers
+         
 
-           
 
-            x_vec = np.arange(0, len(y_vec)) / self.signal.get_sampling_frequency()
+            x_vec = self.signal.x_vec
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
             
@@ -209,7 +210,7 @@ class MainWindow(uiclass, baseclass):
             audio = AudioSegment(
                 y_vec.astype(np.int16).tobytes(),
                 frame_rate=self.signal.audio.frame_rate,
-                sample_width=1,
+                sample_width=2,
                 channels=1  
             )
             self.output = Signal(x_vec, y_vec, audio)
@@ -225,16 +226,17 @@ class MainWindow(uiclass, baseclass):
     def play_ouput(self):
         if self.output.audio:
             self.output_playing = True
-            final_index = np.abs(self.output.x_vec - self.output_current_time).argmin()
-            sd.play(self.output.y_vec[final_index:], self.output.audio.frame_rate * 2)
+            output_final_index = np.abs(self.output.x_vec - self.output_current_time).argmin()
+            sd.play(self.output.y_vec[output_final_index:], self.output.audio.frame_rate * 2)
             sd.wait()
             self.output_current_timer.stop()
             self.output_playing = False
-            if final_index >= len(self.output.x_vec) - 100:
+            if output_final_index >= len(self.output.x_vec) - 100:
+                print('rewind')
                 self.output_play_button.setText('Rewind')
                 self.output_current_time = 0;
     
-    def play_output_audio(self):
+    def play_time_output(self):
         if self.output is not None and self.signal.audio:
             if self.output_playing:
                 sd.stop()
