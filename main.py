@@ -219,6 +219,7 @@ class MainWindow(uiclass, baseclass):
             self.output_slider.setValue(0)
             self.output_total_time.setText(
             f'{str(math.floor(self.output.x_vec[-1] / 60)).zfill(2)}:{str(math.floor(self.output.x_vec[-1]) % 60).zfill(2)}')
+            self.plot_output_spectograpgh()
 
 
 
@@ -258,6 +259,35 @@ class MainWindow(uiclass, baseclass):
         self.output_slider.setValue(math.ceil(self.output_current_time * 1000))
         self.output_slider.blockSignals(False)
         self.output_slider.repaint()
+
+
+    def plot_output_spectograpgh(self):
+        # Compute the spectrogram using scipy's spectrogram function
+        amplitude = self.output.y_vec
+        sampling_rate = self.output.get_sampling_frequency()
+        _, _, Sxx = spectrogram(amplitude, fs=sampling_rate)
+
+        # Plot the spectrogram
+        np.seterr(divide='ignore')
+        plt.pcolormesh(10 * np.log10(Sxx), shading='auto')
+        plt.title('Spectrograph')
+        plt.xlabel('time')
+        plt.ylabel('frequency')
+        plt.colorbar(label='Intensity (dB)')
+
+        self.output_spectrogram_graph.clear()
+
+        spectrogram_image = pg.ImageItem()
+        lut = self.generatePgColormap('viridis')
+        spectrogram_image.setLookupTable(lut)
+
+        # Set the spectrogram data and scaling
+        spectrogram_image.setImage(10 * np.log10(Sxx.T), autoLevels=True, autoDownsample=True)
+        self.output_spectrogram_graph.addItem(spectrogram_image)
+
+        # Set labels for the axes
+        self.output_spectrogram_graph.setLabel('left', 'Frequency', units='Hz')
+        self.output_spectrogram_graph.setLabel('bottom', 'Time', units='s')
     
     
     
