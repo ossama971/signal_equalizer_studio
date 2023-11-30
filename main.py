@@ -82,6 +82,8 @@ class MainWindow(uiclass, baseclass):
 
         # plot input spectrograph
         self.plot_input_spectrograph()
+        self.generate_output_signal()
+        self.test()
 
     def plot_input_frequency(self):
         self.frequencies, self.fourier_transform = self.apply_fourier_transform()
@@ -186,6 +188,16 @@ class MainWindow(uiclass, baseclass):
         self.input_slider.blockSignals(False)
         self.input_slider.repaint()
 
+    def test(self):
+        lower_freq = 0
+        upper_freq = 5000
+        freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
+        amplitude = 100
+        rect_wave = np.ones(len(self.fourier_transform)) * amplitude
+        result = np.where(freq_range_mask, self.fourier_transform * rect_wave, self.fourier_transform)
+        self.fourier_transform = result
+        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
+        self.generate_output_signal()
 
 
     def generate_output_signal(self):
@@ -195,9 +207,6 @@ class MainWindow(uiclass, baseclass):
         # Generate output using inverse Fourier transform of self.frequency and self.fourier_transform
         if self.fourier_transform is not None:
             y_vec = np.fft.ifft(self.fourier_transform).real  # take the real part of the complex numbers
-         
-
-
             x_vec = self.signal.x_vec
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
