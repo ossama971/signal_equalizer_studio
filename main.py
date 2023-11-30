@@ -8,7 +8,7 @@ from threading import Thread
 import numpy as np
 import math
 from PyQt6.QtCore import QTimer
-from scipy.signal import spectrogram
+from scipy.signal import spectrogram, square, hamming
 import matplotlib.pyplot as plt
 from pydub import AudioSegment
 
@@ -48,6 +48,10 @@ class MainWindow(uiclass, baseclass):
         self.input_slider.valueChanged.connect(self._on_input_slider_change)
         self.output_slider.valueChanged.connect(self._on_output_slider_change)
         self.control_slider_1.valueChanged.connect(self.generate_output_signal)
+        self.rectangle_button.pressed.connect(self.rectangle)
+        self.gaussian_button.pressed.connect(self.gaussian)
+        self.hamming_button.pressed.connect(self.hamming)
+        self.hanning_button.pressed.connect(self.hanning)
         
 
 
@@ -199,6 +203,90 @@ class MainWindow(uiclass, baseclass):
         self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
         self.generate_output_signal()
 
+    def gaussian(self):
+        lower_freq = 0
+        upper_freq = 5000
+
+        # Create a Gaussian signal
+        mean = 2500  # Center frequency of the Gaussian signal
+        std_dev = 500  # Standard deviation of the Gaussian signal
+        amplitude = 100
+        gaussian_signal = (np.exp(-(self.frequencies - mean)**2 / (2 * std_dev**2)) ) * amplitude
+
+
+        # Create a frequency range mask
+        freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
+
+        
+        result = np.where(freq_range_mask, self.fourier_transform * gaussian_signal, self.fourier_transform)
+
+        # Update self.fourier_transform
+        self.fourier_transform = result
+
+        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
+        self.generate_output_signal()
+
+    def rectangle(self):
+        lower_freq = 0
+        upper_freq = 5000
+        amplitude = 100
+
+        # Create a rectangular wave
+        frequency = 2500  # Center frequency of the square wave
+        rectangular_wave = square(2 * np.pi * frequency) * amplitude
+
+
+        # Create a frequency range mask
+        freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
+
+        
+        result = np.where(freq_range_mask, self.fourier_transform * rectangular_wave, self.fourier_transform)
+
+        # Update self.fourier_transform
+        self.fourier_transform = result
+
+        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
+        self.generate_output_signal()
+
+    def hamming(self):
+        lower_freq = 0
+        upper_freq = 5000
+        amplitude = 100
+        # Create a Hamming window
+        hamming_window = np.hamming(len(self.fourier_transform)) * amplitude
+
+        # Create a frequency range mask
+        freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
+
+        
+        result = np.where(freq_range_mask, self.fourier_transform * hamming_window, self.fourier_transform)
+
+        # Update self.fourier_transform
+        self.fourier_transform = result
+
+        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
+        self.generate_output_signal()
+
+    def hanning(self):
+        lower_freq = 0
+        upper_freq = 5000
+        amplitude = 100
+
+        # Create a Hanning window
+        hanning_window = np.hanning(len(self.fourier_transform)) * amplitude
+        
+
+        # Create a frequency range mask
+        freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
+
+        
+        result = np.where(freq_range_mask, self.fourier_transform * hanning_window, self.fourier_transform)
+
+        # Update self.fourier_transform
+        self.fourier_transform = result
+
+        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
+        self.generate_output_signal()
 
     def generate_output_signal(self):
         self.output_signal_graph.clear()
