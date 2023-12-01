@@ -8,7 +8,7 @@ from threading import Thread
 import numpy as np
 import math
 from PyQt6.QtCore import QTimer
-from scipy.signal import spectrogram, square, hamming
+from scipy.signal import spectrogram, square, hamming,gaussian
 import matplotlib.pyplot as plt
 from pydub import AudioSegment
 
@@ -219,7 +219,7 @@ class MainWindow(uiclass, baseclass):
         self.slider_values[index].setText(f"{value}")
         if self.signal:
             if self.window_type == WindowType.GAUSSIAN:
-                self.perform_gaussian(index, len(self.slider_values), value)
+                self.perform_gaussian()
             elif self.window_type == WindowType.RECTANGLE:
                 self.perform_rect()    
             elif self.window_type == WindowType.HAMMING:
@@ -341,8 +341,36 @@ class MainWindow(uiclass, baseclass):
         self.frequency_graph.plot(self.frequencies,all_wave,pen= pen_c)
         self.generate_output_signal() 
 
-    def perform_gaussian(self, index, total, value):
-       pass
+    def perform_gaussian(self):
+        total = len(self.slider_values)
+        result = self.original_fourier_transform
+        all_wave = np.array([])
+        for i in range(total):
+            lower_freq = i * (self.frequencies[-1] / total)
+            upper_freq = (i + 1) * (self.frequencies[-1] / total)
+            amplitude = int(self.slider_values[i].text())
+            freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
+            fourier_transform_mask = self.fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
+            
+            mean = (upper_freq - lower_freq)/2 
+            std_dev = 500  
+            gaus_signal = gaussian(len(fourier_transform_mask), std_dev) * amplitude
+            
+            
+            # gaussian_signal = (np.exp(-(freq_range_mask - mean)**2 / (2 * std_dev**2)) ) * amplitude
+            # full_gaussian_signal = (np.exp(-(self.frequencies - mean)**2 / (2 * std_dev**2)) ) * amplitude
+            result = np.where(freq_range_mask, fourier_transform_mask * gaus_signal, fourier_transform_mask)
+            all_wave = np.concatenate((all_wave, result))
+
+
+        self.fourier_transform = all_wave
+        self.frequency_graph.clear()
+        self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
+        pen_c = pg.mkPen(color=(255, 0, 0))
+        self.frequency_graph.plot(self.frequencies,all_wave.real*1000,pen= pen_c)
+        self.generate_output_signal()
+
+
         # lower_freq = index * (self.frequencies[-1] / total)
         # upper_freq = (index + 1) * (self.frequencies[-1] / total)
 
@@ -365,25 +393,53 @@ class MainWindow(uiclass, baseclass):
         # self.generate_output_signal()
 
     def perform_hanning(self):
-        lower_freq = 0
-        upper_freq = 5000
-        amplitude = 100
-
-        # Create a Hanning window
-        hanning_window = np.hanning(len(self.fourier_transform)) * amplitude
         
+        total = len(self.slider_values)
+        result = self.original_fourier_transform
+        all_wave = np.array([])
+        for i in range(total):
+            lower_freq = i * (self.frequencies[-1] / total)
+            upper_freq = (i + 1) * (self.frequencies[-1] / total)
+            amplitude = int(self.slider_values[i].text())
+            freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
+            fourier_transform_mask = self.fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
+            
+            mean = (upper_freq - lower_freq)/2 
+            std_dev = 500  
+            hanning_signal = np.hanning(len(fourier_transform_mask)) * amplitude
+            
+            
+            # gaussian_signal = (np.exp(-(freq_range_mask - mean)**2 / (2 * std_dev**2)) ) * amplitude
+            # full_gaussian_signal = (np.exp(-(self.frequencies - mean)**2 / (2 * std_dev**2)) ) * amplitude
+            result = np.where(freq_range_mask, fourier_transform_mask * hanning_signal, fourier_transform_mask)
+            all_wave = np.concatenate((all_wave, result))
 
-        # Create a frequency range mask
-        freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
 
-        
-        result = np.where(freq_range_mask, self.fourier_transform * hanning_window, self.fourier_transform)
-
-        # Update self.fourier_transform
-        self.fourier_transform = result
-
-        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
+        self.fourier_transform = all_wave
+        self.frequency_graph.clear()
+        self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
+        pen_c = pg.mkPen(color=(255, 0, 0))
+        self.frequency_graph.plot(self.frequencies,all_wave.real,pen= pen_c)
         self.generate_output_signal()
+        # lower_freq = 0
+        # upper_freq = 5000
+        # amplitude = 100
+
+        # # Create a Hanning window
+        # hanning_window = np.hanning(len(self.fourier_transform)) * amplitude
+        
+
+        # # Create a frequency range mask
+        # freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
+
+        
+        # result = np.where(freq_range_mask, self.fourier_transform * hanning_window, self.fourier_transform)
+
+        # # Update self.fourier_transform
+        # self.fourier_transform = result
+
+        # self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
+        # self.generate_output_signal()
 
     def perform_hamming(self):
         lower_freq = 0
