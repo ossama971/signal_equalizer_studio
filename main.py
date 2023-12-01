@@ -14,10 +14,24 @@ from pydub import AudioSegment
 
 from helpers.get_signal_from_file import get_signal_from_file
 from models.signal import Signal
+from enum import Enum
+from functools import partial
 
 mainwindow_ui_file_path = os.path.join(os.path.dirname(__file__), 'views', 'mainwindow.ui')
 uiclass, baseclass = pg.Qt.loadUiType(mainwindow_ui_file_path)
 
+
+class WindowType(Enum):
+    RECTANGLE = 'rectangle'
+    HAMMING = 'hamming'
+    HANNING = 'hanning'
+    GAUSSIAN = 'gaussian'
+
+class ModeType(Enum):
+    ANIMALS = 'animals'
+    MUSIC = 'music'
+    UNIFORM = 'uniform'
+    ECG = 'ecg'
 
 class MainWindow(uiclass, baseclass):
     
@@ -25,7 +39,6 @@ class MainWindow(uiclass, baseclass):
         super().__init__()
         self.setupUi(self)
         self.setWindowTitle("Signal Equalizer Studio")
-        self._initialize_signals_slots()
         self.signal = None
         self.playing = False
         self.output : Signal = None
@@ -35,11 +48,17 @@ class MainWindow(uiclass, baseclass):
         self.output_current_time = 0
 
         self.frequencies = None
+        self.original_fourier_transform = None
         self.fourier_transform = None
         self.last_index = 0
         self.current_timer = QTimer(self)
         self.current_timer.timeout.connect(self.update_current_timer)
         self.current_time = 0
+        self.vertical_layout = QVBoxLayout()
+        self.window_type = WindowType.RECTANGLE
+        self.mode = ModeType.ANIMALS
+        self.slider_values = []
+        self._initialize_signals_slots()
 
     def _initialize_signals_slots(self):
         self.import_action.triggered.connect(self._import_signal_file)
@@ -47,11 +66,15 @@ class MainWindow(uiclass, baseclass):
         self.output_play_button.pressed.connect(self.play_time_output)
         self.input_slider.valueChanged.connect(self._on_input_slider_change)
         self.output_slider.valueChanged.connect(self._on_output_slider_change)
-        self.control_slider_1.valueChanged.connect(self.generate_output_signal)
         self.rectangle_button.pressed.connect(self.rectangle)
         self.gaussian_button.pressed.connect(self.gaussian)
         self.hamming_button.pressed.connect(self.hamming)
         self.hanning_button.pressed.connect(self.hanning)
+        self.uniform_range_action.triggered.connect(self.uniform_range_mode)
+        self.musical_instruments_action.triggered.connect(self.music_mode)
+        self.animal_sounds_action.triggered.connect(self.animals_mode)
+        self.rectangle()
+        self.animals_mode()
         
 
 
@@ -87,10 +110,10 @@ class MainWindow(uiclass, baseclass):
         # plot input spectrograph
         self.plot_input_spectrograph()
         self.generate_output_signal()
-        self.test()
 
     def plot_input_frequency(self):
         self.frequencies, self.fourier_transform = self.apply_fourier_transform()
+        self.original_fourier_transform = self.fourier_transform.copy()
         pen_c = pg.mkPen(color=(255, 255, 255))
         self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform), pen=pen_c)
 
@@ -192,82 +215,156 @@ class MainWindow(uiclass, baseclass):
         self.input_slider.blockSignals(False)
         self.input_slider.repaint()
 
-    def test(self):
-        lower_freq = 0
-        upper_freq = 5000
-        freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
-        amplitude = 100
-        rect_wave = np.ones(len(self.fourier_transform)) * amplitude
-        result = np.where(freq_range_mask, self.fourier_transform * rect_wave, self.fourier_transform)
-        self.fourier_transform = result
-        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
-        self.generate_output_signal()
+    def slider_value_changed(self, index, value):
+        self.slider_values[index].setText(f"{value}")
+        if self.signal:
+            if self.window_type == WindowType.GAUSSIAN:
+                self.perform_gaussian(index, len(self.slider_values), value)
+            elif self.window_type == WindowType.RECTANGLE:
+                self.perform_rect()    
+            elif self.window_type == WindowType.HAMMING:
+                self.perform_hamming()    
+            elif self.window_type == WindowType.HANNING:
+               self.perform_hanning()    
+        
+        
+    def uniform_range_mode(self):
+        self.mode = ModeType.UNIFORM
+        for i in range(10):
+            new_vertical_layout = QVBoxLayout()
+            label = QLabel(f'Range {i+1}')
+            slider = QSlider()
+            slider.setRange(0,10)
+            slider.setValue(1)
+            value_label = QLabel('1')
+            new_vertical_layout.addWidget(label)
+            new_vertical_layout.addWidget(slider)
+            new_vertical_layout.addWidget(value_label)
+            self.slider_values.append(value_label)
+            self.sliders_layout.addLayout(new_vertical_layout)
+            slider.valueChanged.connect(partial(self.slider_value_changed, i))
+
+    def animals_mode(self):
+        self.mode = ModeType.ANIMALS
+        for i in range(4):
+            new_vertical_layout = QVBoxLayout()
+            if i == 0:
+                label = QLabel('Horse')
+            elif i == 1:  
+                label = QLabel('Lion') 
+            elif i == 2:  
+                label = QLabel('Bee') 
+            elif i == 3:  
+                label = QLabel('Elephants') 
+            slider = QSlider()
+            slider.setRange(0,10)
+            slider.setValue(1)
+            value_label = QLabel('1')
+            self.slider_values.append(value_label)
+            new_vertical_layout.addWidget(label)
+            new_vertical_layout.addWidget(slider)
+            new_vertical_layout.addWidget(value_label)
+            self.sliders_layout.addLayout(new_vertical_layout)
+            slider.valueChanged.connect(partial(self.slider_value_changed, i))
+
+    def music_mode(self):
+        self.mode = ModeType.MUSIC
+        for i in range(4):
+            new_vertical_layout = QVBoxLayout()
+            if i == 0:
+                label = QLabel('Music 1')
+            elif i == 1:  
+                label = QLabel('Music 2') 
+            elif i == 2:  
+                label = QLabel('Music 3') 
+            elif i == 3:  
+                label = QLabel('Music 4') 
+            slider = QSlider()
+            slider.setRange(0,10)
+            slider.setValue(1)
+            value_label = QLabel('1')
+            self.slider_values.append(value_label)
+            new_vertical_layout.addWidget(label)
+            new_vertical_layout.addWidget(slider)
+            new_vertical_layout.addWidget(value_label)
+            self.sliders_layout.addLayout(new_vertical_layout)
+            slider.valueChanged.connect(partial(self.slider_value_changed, i))
+
 
     def gaussian(self):
-        lower_freq = 0
-        upper_freq = 5000
-
-        # Create a Gaussian signal
-        mean = 2500  # Center frequency of the Gaussian signal
-        std_dev = 500  # Standard deviation of the Gaussian signal
-        amplitude = 100
-        gaussian_signal = (np.exp(-(self.frequencies - mean)**2 / (2 * std_dev**2)) ) * amplitude
-
-
-        # Create a frequency range mask
-        freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
-
-        
-        result = np.where(freq_range_mask, self.fourier_transform * gaussian_signal, self.fourier_transform)
-
-        # Update self.fourier_transform
-        self.fourier_transform = result
-
-        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
-        self.generate_output_signal()
+        self.window_type = WindowType.GAUSSIAN
+        self.gaussian_button.setStyleSheet("QPushButton { border: 2px solid #FFFFFF; }")
+        self.hamming_button.setStyleSheet("")
+        self.rectangle_button.setStyleSheet("")
+        self.hanning_button.setStyleSheet("")
 
     def rectangle(self):
-        lower_freq = 0
-        upper_freq = 5000
-        amplitude = 100
-
-        # Create a rectangular wave
-        frequency = 2500  # Center frequency of the square wave
-        rectangular_wave = square(2 * np.pi * frequency) * amplitude
-
-
-        # Create a frequency range mask
-        freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
-
-        
-        result = np.where(freq_range_mask, self.fourier_transform * rectangular_wave, self.fourier_transform)
-
-        # Update self.fourier_transform
-        self.fourier_transform = result
-
-        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
-        self.generate_output_signal()
+        self.window_type = WindowType.RECTANGLE
+        self.gaussian_button.setStyleSheet("")
+        self.hamming_button.setStyleSheet("")
+        self.rectangle_button.setStyleSheet("QPushButton { border: 2px solid #FFFFFF; }")
+        self.hanning_button.setStyleSheet("")
 
     def hamming(self):
-        lower_freq = 0
-        upper_freq = 5000
-        amplitude = 100
-        # Create a Hamming window
-        hamming_window = np.hamming(len(self.fourier_transform)) * amplitude
-
-        # Create a frequency range mask
-        freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
-
-        
-        result = np.where(freq_range_mask, self.fourier_transform * hamming_window, self.fourier_transform)
-
-        # Update self.fourier_transform
-        self.fourier_transform = result
-
-        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
-        self.generate_output_signal()
+        self.window_type = WindowType.HAMMING
+        self.gaussian_button.setStyleSheet("")
+        self.hamming_button.setStyleSheet("QPushButton { border: 2px solid #FFFFFF; }")
+        self.rectangle_button.setStyleSheet("")
+        self.hanning_button.setStyleSheet("")
 
     def hanning(self):
+        self.window_type = WindowType.HANNING
+        self.gaussian_button.setStyleSheet("")
+        self.hamming_button.setStyleSheet("")
+        self.rectangle_button.setStyleSheet("")
+        self.hanning_button.setStyleSheet("QPushButton { border: 2px solid #FFFFFF; }")
+
+    def perform_rect(self): 
+        total = len(self.slider_values)
+        result = self.original_fourier_transform
+        all_wave = np.array([])
+        for i in range(total):  
+            lower_freq = i * (self.frequencies[-1] / total)
+            upper_freq = (i + 1) * (self.frequencies[-1] / total)
+            amplitude = int(self.slider_values[i].text())
+            freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
+            rectangular_wave = np.ones(np.sum(freq_range_mask)) * amplitude * 100
+            full_rectangular_wave = np.ones(len(self.frequencies)) * amplitude
+            all_wave = np.concatenate((all_wave, rectangular_wave))
+            result = np.where(freq_range_mask, result * full_rectangular_wave, result)
+
+
+        self.fourier_transform = result
+        self.frequency_graph.clear()
+        self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
+        pen_c = pg.mkPen(color=(255, 0, 0))
+        self.frequency_graph.plot(self.frequencies,all_wave,pen= pen_c)
+        self.generate_output_signal() 
+
+    def perform_gaussian(self, index, total, value):
+       pass
+        # lower_freq = index * (self.frequencies[-1] / total)
+        # upper_freq = (index + 1) * (self.frequencies[-1] / total)
+
+        # # Create a Gaussian signal
+
+
+
+        # # Create a frequency range mask
+        # freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
+        # mean = (upper_freq - lower_freq)/2 
+        # std_dev = 500  
+        # gaussian_signal = (np.exp(-(self.frequencies - mean)**2 / (2 * std_dev**2)) ) * amplitude
+
+        
+        # result = np.where(freq_range_mask, self.fourier_transform * gaussian_signal, self.fourier_transform)
+
+        # # self.fourier_transform = result
+        # self.frequency_graph.clear()
+        # self.frequency_graph.plot(self.frequencies, abs(result))
+        # self.generate_output_signal()
+
+    def perform_hanning(self):
         lower_freq = 0
         upper_freq = 5000
         amplitude = 100
@@ -281,6 +378,25 @@ class MainWindow(uiclass, baseclass):
 
         
         result = np.where(freq_range_mask, self.fourier_transform * hanning_window, self.fourier_transform)
+
+        # Update self.fourier_transform
+        self.fourier_transform = result
+
+        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
+        self.generate_output_signal()
+
+    def perform_hamming(self):
+        lower_freq = 0
+        upper_freq = 5000
+        amplitude = 100
+        # Create a Hamming window
+        hamming_window = np.hamming(len(self.fourier_transform)) * amplitude
+
+        # Create a frequency range mask
+        freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
+
+        
+        result = np.where(freq_range_mask, self.fourier_transform * hamming_window, self.fourier_transform)
 
         # Update self.fourier_transform
         self.fourier_transform = result
