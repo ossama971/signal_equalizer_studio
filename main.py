@@ -54,10 +54,10 @@ class MainWindow(uiclass, baseclass):
         self.current_timer = QTimer(self)
         self.current_timer.timeout.connect(self.update_current_timer)
         self.current_time = 0
-        self.vertical_layout = QVBoxLayout()
         self.window_type = WindowType.RECTANGLE
         self.mode = ModeType.ANIMALS
         self.slider_values = []
+        self.lower_upper_freq_list = []
         self._initialize_signals_slots()
 
     def _initialize_signals_slots(self):
@@ -73,8 +73,50 @@ class MainWindow(uiclass, baseclass):
         self.uniform_range_action.triggered.connect(self.uniform_range_mode)
         self.musical_instruments_action.triggered.connect(self.music_mode)
         self.animal_sounds_action.triggered.connect(self.animals_mode)
+        self.ecg_abnormalities_action.triggered.connect(self.ecg_mode)
+        self.delete_action.triggered.connect(self.delete_all)
         self.rectangle()
         self.animals_mode()
+        
+
+    # def show_waring(self):
+    #     message_box = QMessageBox()
+    #     message_box.setWindowTitle('Two Button Message Box')
+    #     message_box.setText('Choose an action:')
+
+    #     # Create custom buttons
+    #     function_a_button = QPushButton('Function A')
+    #     function_b_button = QPushButton('Function B')
+
+    #     # Connect buttons to their respective functions
+    #     function_a_button.clicked.connect(self.function_a)
+    #     function_b_button.clicked.connect(self.function_b)
+
+    #     # Add custom buttons to the message box
+    #     message_box.addButton(function_a_button, QMessageBox.YesRole)
+    #     message_box.addButton(function_b_button, QMessageBox.NoRole)
+
+    #     message_box.exec_()
+
+    def delete_all(self):
+        self.signal = None
+        self.playing = False
+        self.output : Signal = None
+        self.output_playing = False
+        self.output_current_timer = QTimer(self)
+        self.output_current_time = 0
+        self.frequencies = None
+        self.original_fourier_transform = None
+        self.fourier_transform = None
+        self.last_index = 0
+        self.current_timer = QTimer(self)
+        self.current_time = 0
+        self.slider_values = []
+        self.input_spectrogram_graph.clear()
+        self.output_spectrogram_graph.clear()
+        self.frequency_graph.clear()
+        self.input_signal_graph.clear()
+        self.output_signal_graph.clear()
         
 
 
@@ -106,10 +148,25 @@ class MainWindow(uiclass, baseclass):
 
         # plot input frequency graph
         self.plot_input_frequency()
+        if self.mode == ModeType.UNIFORM:
+            freq_list = []
+            for i in range(10):
+                lower_freq = i * (self.frequencies[-1] / 10)
+                upper_freq = (i + 1) * (self.frequencies[-1] / 10)
+                freq_list.append([lower_freq, upper_freq])
+            self.lower_upper_freq_list = freq_list     
+        if self.window_type == WindowType.RECTANGLE:       
+            self.perform_rect()
+        elif self.window_type == WindowType.GAUSSIAN:       
+            self.perform_gaussian()    
+        elif self.window_type == WindowType.HAMMING:       
+            self.perform_hamming()    
+        elif self.window_type == WindowType.HANNING:       
+            self.perform_hanning()  
 
         # plot input spectrograph
         self.plot_input_spectrograph()
-        self.generate_output_signal()
+        self.generate_output_signal()  
 
     def plot_input_frequency(self):
         self.frequencies, self.fourier_transform = self.apply_fourier_transform()
@@ -227,9 +284,25 @@ class MainWindow(uiclass, baseclass):
             elif self.window_type == WindowType.HANNING:
                self.perform_hanning()    
         
+
+        
+    def delete_sliders(self):  
+      for i in reversed(range(self.sliders_layout.count())):
+            item = self.sliders_layout.itemAt(i)
+            if isinstance(item.layout(), QVBoxLayout):
+                # Hide the widgets in the vertical layout
+                for j in reversed(range(item.layout().count())):
+                    widget = item.layout().itemAt(j).widget()
+                    if widget:
+                        widget.hide()
+                self.sliders_layout.removeItem(item)
+                item.layout().deleteLater()                
         
     def uniform_range_mode(self):
+        self.delete_all()
+        self.delete_sliders()
         self.mode = ModeType.UNIFORM
+        self.slider_values = []
         for i in range(10):
             new_vertical_layout = QVBoxLayout()
             label = QLabel(f'Range {i+1}')
@@ -243,9 +316,21 @@ class MainWindow(uiclass, baseclass):
             self.slider_values.append(value_label)
             self.sliders_layout.addLayout(new_vertical_layout)
             slider.valueChanged.connect(partial(self.slider_value_changed, i))
+            
 
     def animals_mode(self):
+        self.delete_all()
+        if self.sliders_layout.count() != 0:
+            self.delete_sliders()
         self.mode = ModeType.ANIMALS
+        freq_list = [
+            [0,200],
+            [200,500],
+            [500,700],
+            [700,1000],
+        ]
+        self.lower_upper_freq_list = freq_list
+        self.slider_values = []
         for i in range(4):
             new_vertical_layout = QVBoxLayout()
             if i == 0:
@@ -257,6 +342,7 @@ class MainWindow(uiclass, baseclass):
             elif i == 3:  
                 label = QLabel('Elephants') 
             slider = QSlider()
+            container = QWidget()
             slider.setRange(0,10)
             slider.setValue(1)
             value_label = QLabel('1')
@@ -265,10 +351,22 @@ class MainWindow(uiclass, baseclass):
             new_vertical_layout.addWidget(slider)
             new_vertical_layout.addWidget(value_label)
             self.sliders_layout.addLayout(new_vertical_layout)
+            # container.addLayout(new_vertical_layout)
+            # self.sliders_layout.addWidget(container)
             slider.valueChanged.connect(partial(self.slider_value_changed, i))
 
     def music_mode(self):
+        self.delete_all()
+        self.delete_sliders()
         self.mode = ModeType.MUSIC
+        freq_list = [
+            [0,200],
+            [200,500],
+            [500,700],
+            [700,1000],
+        ]
+        self.lower_upper_freq_list = freq_list
+        self.slider_values = []
         for i in range(4):
             new_vertical_layout = QVBoxLayout()
             if i == 0:
@@ -290,9 +388,44 @@ class MainWindow(uiclass, baseclass):
             self.sliders_layout.addLayout(new_vertical_layout)
             slider.valueChanged.connect(partial(self.slider_value_changed, i))
 
+    def ecg_mode(self):
+        self.delete_all()
+        self.delete_sliders()
+        self.mode = ModeType.MUSIC
+        freq_list = [
+            [0,200],
+            [200,500],
+            [500,700],
+            [700,1000],
+        ]
+        self.lower_upper_freq_list = freq_list
+        self.slider_values = []
+        for i in range(4):
+            new_vertical_layout = QVBoxLayout()
+            if i == 0:
+                label = QLabel('SVT')
+            elif i == 1:  
+                label = QLabel('AFIB') 
+            elif i == 2:  
+                label = QLabel('VT') 
+            elif i == 3:  
+                label = QLabel('Music 4') 
+            slider = QSlider()
+            slider.setRange(0,10)
+            slider.setValue(1)
+            value_label = QLabel('1')
+            self.slider_values.append(value_label)
+            new_vertical_layout.addWidget(label)
+            new_vertical_layout.addWidget(slider)
+            new_vertical_layout.addWidget(value_label)
+            self.sliders_layout.addLayout(new_vertical_layout)
+            slider.valueChanged.connect(partial(self.slider_value_changed, i))
+
 
     def gaussian(self):
         self.window_type = WindowType.GAUSSIAN
+        if self.signal is not None: 
+            self.perform_gaussian()
         self.gaussian_button.setStyleSheet("QPushButton { border: 2px solid #FFFFFF; }")
         self.hamming_button.setStyleSheet("")
         self.rectangle_button.setStyleSheet("")
@@ -300,6 +433,8 @@ class MainWindow(uiclass, baseclass):
 
     def rectangle(self):
         self.window_type = WindowType.RECTANGLE
+        if self.signal is not None: 
+            self.perform_rect()
         self.gaussian_button.setStyleSheet("")
         self.hamming_button.setStyleSheet("")
         self.rectangle_button.setStyleSheet("QPushButton { border: 2px solid #FFFFFF; }")
@@ -307,6 +442,8 @@ class MainWindow(uiclass, baseclass):
 
     def hamming(self):
         self.window_type = WindowType.HAMMING
+        if self.signal is not None: 
+            self.perform_hamming()
         self.gaussian_button.setStyleSheet("")
         self.hamming_button.setStyleSheet("QPushButton { border: 2px solid #FFFFFF; }")
         self.rectangle_button.setStyleSheet("")
@@ -314,31 +451,35 @@ class MainWindow(uiclass, baseclass):
 
     def hanning(self):
         self.window_type = WindowType.HANNING
+        if self.signal is not None: 
+            self.perform_hanning()
         self.gaussian_button.setStyleSheet("")
         self.hamming_button.setStyleSheet("")
         self.rectangle_button.setStyleSheet("")
         self.hanning_button.setStyleSheet("QPushButton { border: 2px solid #FFFFFF; }")
-
+    
     def perform_rect(self): 
         total = len(self.slider_values)
         result = self.original_fourier_transform
         all_wave = np.array([])
+        window_plot = np.array([])
         for i in range(total):  
-            lower_freq = i * (self.frequencies[-1] / total)
-            upper_freq = (i + 1) * (self.frequencies[-1] / total)
+            lower_freq = self.lower_upper_freq_list[i][0]
+            upper_freq = self.lower_upper_freq_list[i][1]
             amplitude = int(self.slider_values[i].text())
-            freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
-            rectangular_wave = np.ones(np.sum(freq_range_mask)) * amplitude * 100
-            full_rectangular_wave = np.ones(len(self.frequencies)) * amplitude
-            all_wave = np.concatenate((all_wave, rectangular_wave))
-            result = np.where(freq_range_mask, result * full_rectangular_wave, result)
+            freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
+            fourier_transform_mask = self.fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
+            rect_signal = np.ones(len(fourier_transform_mask)) * amplitude
+            result = np.where(freq_range_mask, fourier_transform_mask * rect_signal, fourier_transform_mask)
+            all_wave = np.concatenate((all_wave, result))
+            window_plot = np.concatenate((window_plot, rect_signal))
 
 
-        self.fourier_transform = result
+        self.fourier_transform[:len(all_wave)] = all_wave
         self.frequency_graph.clear()
         self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
         pen_c = pg.mkPen(color=(255, 0, 0))
-        self.frequency_graph.plot(self.frequencies,all_wave,pen= pen_c)
+        self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot * 100,pen= pen_c)
         self.generate_output_signal() 
 
     def perform_gaussian(self):
@@ -347,14 +488,14 @@ class MainWindow(uiclass, baseclass):
         all_wave = np.array([])
         window_plot = np.array([])
         for i in range(total):
-            lower_freq = i * (self.frequencies[-1] / total)
-            upper_freq = (i + 1) * (self.frequencies[-1] / total)
+            lower_freq = self.lower_upper_freq_list[i][0]
+            upper_freq = self.lower_upper_freq_list[i][1]
             amplitude = int(self.slider_values[i].text())
             freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
             fourier_transform_mask = self.fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
             
             mean = (upper_freq - lower_freq)/2 
-            std_dev = 500  
+            std_dev = mean  *5
             gaus_signal = gaussian(len(fourier_transform_mask), std_dev) * amplitude
             
             
@@ -365,11 +506,11 @@ class MainWindow(uiclass, baseclass):
             window_plot = np.concatenate((window_plot,gaus_signal))
 
 
-        self.fourier_transform = all_wave
+        self.fourier_transform[:len(all_wave)] = all_wave
         self.frequency_graph.clear()
         self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
         pen_c = pg.mkPen(color=(255, 0, 0))
-        self.frequency_graph.plot(self.frequencies,window_plot*100,pen= pen_c)
+        self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot*100,pen= pen_c)
         self.generate_output_signal()
 
 
@@ -401,8 +542,8 @@ class MainWindow(uiclass, baseclass):
         all_wave = np.array([])
         window_plot = np.array([])
         for i in range(total):
-            lower_freq = i * (self.frequencies[-1] / total)
-            upper_freq = (i + 1) * (self.frequencies[-1] / total)
+            lower_freq = self.lower_upper_freq_list[i][0]
+            upper_freq = self.lower_upper_freq_list[i][1]
             amplitude = int(self.slider_values[i].text())
             freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
             fourier_transform_mask = self.fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
@@ -419,11 +560,11 @@ class MainWindow(uiclass, baseclass):
             window_plot = np.concatenate((window_plot,hanning_signal))
 
 
-        self.fourier_transform = all_wave
+        self.fourier_transform[:len(all_wave)] = all_wave
         self.frequency_graph.clear()
         self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
         pen_c = pg.mkPen(color=(255, 0, 0))
-        self.frequency_graph.plot(self.frequencies,window_plot*100,pen= pen_c)
+        self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot*100,pen= pen_c)
         self.generate_output_signal()
         # lower_freq = 0
         # upper_freq = 5000
@@ -451,8 +592,8 @@ class MainWindow(uiclass, baseclass):
         all_wave = np.array([])
         window_plot = np.array([])
         for i in range(total):
-            lower_freq = i * (self.frequencies[-1] / total)
-            upper_freq = (i + 1) * (self.frequencies[-1] / total)
+            lower_freq = self.lower_upper_freq_list[i][0]
+            upper_freq = self.lower_upper_freq_list[i][1]
             amplitude = int(self.slider_values[i].text())
             freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
             fourier_transform_mask = self.fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
@@ -469,11 +610,11 @@ class MainWindow(uiclass, baseclass):
             window_plot = np.concatenate((window_plot,hamming_signal))
 
 
-        self.fourier_transform = all_wave
+        self.fourier_transform[:len(all_wave)] = all_wave
         self.frequency_graph.clear()
         self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
         pen_c = pg.mkPen(color=(255, 0, 0))
-        self.frequency_graph.plot(self.frequencies,window_plot*100,pen= pen_c)
+        self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot*100,pen= pen_c)
         self.generate_output_signal()
         # lower_freq = 0
         # upper_freq = 5000
@@ -509,9 +650,10 @@ class MainWindow(uiclass, baseclass):
             if max_amplitude > 0:
                 y_vec /= max_amplitude
 
+            
             audio = AudioSegment(
                 y_vec.astype(np.int16).tobytes(),
-                frame_rate=self.signal.audio.frame_rate,
+                frame_rate= None if self.signal.audio is None else self.signal.audio.frame_rate,
                 sample_width=2,
                 channels=1  
             )

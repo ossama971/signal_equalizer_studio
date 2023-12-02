@@ -801,18 +801,7 @@ QlistView{
      <string>File</string>
     </property>
     <addaction name="import_action"/>
-   </widget>
-   <widget class="QMenu" name="menuPlayer_1">
-    <property name="title">
-     <string>Player 1</string>
-    </property>
-    <addaction name="play_pause_1_action"/>
-   </widget>
-   <widget class="QMenu" name="menuPlayer_2">
-    <property name="title">
-     <string>Player 2</string>
-    </property>
-    <addaction name="play_pause_2_action"/>
+    <addaction name="delete_action"/>
    </widget>
    <widget class="QMenu" name="menuMode">
     <property name="title">
@@ -824,8 +813,6 @@ QlistView{
     <addaction name="ecg_abnormalities_action"/>
    </widget>
    <addaction name="menuFile"/>
-   <addaction name="menuPlayer_1"/>
-   <addaction name="menuPlayer_2"/>
    <addaction name="menuMode"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -862,6 +849,11 @@ QlistView{
   <action name="ecg_abnormalities_action">
    <property name="text">
     <string>ECG Abnormalities</string>
+   </property>
+  </action>
+  <action name="delete_action">
+   <property name="text">
+    <string>Delete signal</string>
    </property>
   </action>
  </widget>
