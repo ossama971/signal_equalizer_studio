@@ -44,20 +44,19 @@ class MainWindow(uiclass, baseclass):
         self.output : Signal = None
         self.output_playing = False
         self.output_current_timer = QTimer(self)
-        self.output_current_timer.timeout.connect(self.update_output_current_timer)
         self.output_current_time = 0
 
         self.frequencies = None
         self.original_fourier_transform = None
         self.fourier_transform = None
-        self.last_index = 0
         self.current_timer = QTimer(self)
-        self.current_timer.timeout.connect(self.update_current_timer)
         self.current_time = 0
         self.window_type = WindowType.RECTANGLE
         self.mode = ModeType.ANIMALS
         self.slider_values = []
         self.lower_upper_freq_list = []
+        self.current_input_index = 0
+        self.current_output_index = 0
         self._initialize_signals_slots()
 
     def _initialize_signals_slots(self):
@@ -75,43 +74,25 @@ class MainWindow(uiclass, baseclass):
         self.animal_sounds_action.triggered.connect(self.animals_mode)
         self.ecg_abnormalities_action.triggered.connect(self.ecg_mode)
         self.delete_action.triggered.connect(self.delete_all)
+        self.current_timer.timeout.connect(self.update_current_timer)
+        self.output_current_timer.timeout.connect(self.update_output_current_timer)
         self.rectangle()
         self.animals_mode()
         
-
-    # def show_waring(self):
-    #     message_box = QMessageBox()
-    #     message_box.setWindowTitle('Two Button Message Box')
-    #     message_box.setText('Choose an action:')
-
-    #     # Create custom buttons
-    #     function_a_button = QPushButton('Function A')
-    #     function_b_button = QPushButton('Function B')
-
-    #     # Connect buttons to their respective functions
-    #     function_a_button.clicked.connect(self.function_a)
-    #     function_b_button.clicked.connect(self.function_b)
-
-    #     # Add custom buttons to the message box
-    #     message_box.addButton(function_a_button, QMessageBox.YesRole)
-    #     message_box.addButton(function_b_button, QMessageBox.NoRole)
-
-    #     message_box.exec_()
 
     def delete_all(self):
         self.signal = None
         self.playing = False
         self.output : Signal = None
         self.output_playing = False
-        self.output_current_timer = QTimer(self)
         self.output_current_time = 0
         self.frequencies = None
         self.original_fourier_transform = None
         self.fourier_transform = None
-        self.last_index = 0
-        self.current_timer = QTimer(self)
         self.current_time = 0
         self.slider_values = []
+        self.current_input_index = 0
+        self.current_output_index = 0
         self.input_spectrogram_graph.clear()
         self.output_spectrogram_graph.clear()
         self.frequency_graph.clear()
@@ -136,6 +117,8 @@ class MainWindow(uiclass, baseclass):
         # plot time graph
         pen_c = pg.mkPen(color=(255, 255, 255))
         self.input_signal_graph.plot(self.signal.x_vec, self.signal.y_vec, pen=pen_c)
+        self.input_signal_graph.setXRange(self.signal.x_vec[0], self.signal.x_vec[-1])
+        self.input_signal_graph.setYRange(min(self.signal.y_vec), max(self.signal.y_vec))
 
         # plot initial output time graph
         # self.output_signal_graph.plot(self.signal.x_vec, self.signal.y_vec, pen=pen_c) 
@@ -246,7 +229,8 @@ class MainWindow(uiclass, baseclass):
             final_index = np.abs(self.signal.x_vec - self.current_time).argmin()
             if final_index >= len(self.signal.x_vec) - 100:
                 self.input_play_button.setText('Rewind')
-                self.current_time = 0;
+                self.current_time = 0
+                self.current_input_index = 0
 
     def play_time_signal(self):
         if self.signal.audio:
@@ -258,19 +242,25 @@ class MainWindow(uiclass, baseclass):
 
             else:
                 self.audio_thread = Thread(target=self.play_audio)
+                if self.current_input_index == 0:
+                    self.input_signal_graph.clear()
                 self.audio_thread.start()
-                self.current_timer.start(10)
+                self.current_timer.start(100)
                 self.playing = True
                 self.input_play_button.setText('Pause')
 
     def update_current_timer(self):
-        self.current_time += 0.01;
+        self.current_time += 0.1
         self.current_input_time.setText(
             f'{str(math.floor(self.current_time / 60)).zfill(2)}:{str(math.floor(self.current_time) % 60).zfill(2)}')
         self.input_slider.blockSignals(True)
         self.input_slider.setValue(math.ceil(self.current_time * 1000))
         self.input_slider.blockSignals(False)
         self.input_slider.repaint()
+        old_current_input_index = self.current_input_index
+        self.current_input_index += math.ceil(len(self.signal.x_vec) / (self.signal.x_vec[-1] * 10))
+        self.input_signal_graph.plot(self.signal.x_vec[old_current_input_index:self.current_input_index], self.signal.y_vec[old_current_input_index:self.current_input_index])
+
 
     def slider_value_changed(self, index, value):
         self.slider_values[index].setText(f"{value}")
@@ -324,25 +314,24 @@ class MainWindow(uiclass, baseclass):
             self.delete_sliders()
         self.mode = ModeType.ANIMALS
         freq_list = [
-            [0,200],
-            [200,500],
-            [500,700],
-            [700,1000],
+            [0,400],
+            [400,800],
+            [800,1400],
+            [1400,5000],
         ]
         self.lower_upper_freq_list = freq_list
         self.slider_values = []
         for i in range(4):
             new_vertical_layout = QVBoxLayout()
             if i == 0:
-                label = QLabel('Horse')
+                label = QLabel('Bee')
             elif i == 1:  
                 label = QLabel('Lion') 
             elif i == 2:  
-                label = QLabel('Bee') 
+                label = QLabel('Elephant') 
             elif i == 3:  
-                label = QLabel('Elephants') 
+                label = QLabel('Horse') 
             slider = QSlider()
-            container = QWidget()
             slider.setRange(0,10)
             slider.setValue(1)
             value_label = QLabel('1')
@@ -360,23 +349,23 @@ class MainWindow(uiclass, baseclass):
         self.delete_sliders()
         self.mode = ModeType.MUSIC
         freq_list = [
-            [0,200],
-            [200,500],
-            [500,700],
-            [700,1000],
+            [0,250],
+            [250,800],
+            [800,2200],
+            [2200,4600],
         ]
         self.lower_upper_freq_list = freq_list
         self.slider_values = []
         for i in range(4):
             new_vertical_layout = QVBoxLayout()
             if i == 0:
-                label = QLabel('Music 1')
+                label = QLabel('Kalimba')
             elif i == 1:  
-                label = QLabel('Music 2') 
+                label = QLabel('Piano') 
             elif i == 2:  
-                label = QLabel('Music 3') 
+                label = QLabel('Guitar') 
             elif i == 3:  
-                label = QLabel('Music 4') 
+                label = QLabel('Violin') 
             slider = QSlider()
             slider.setRange(0,10)
             slider.setValue(1)
@@ -393,10 +382,10 @@ class MainWindow(uiclass, baseclass):
         self.delete_sliders()
         self.mode = ModeType.MUSIC
         freq_list = [
-            [0,200],
-            [200,500],
-            [500,700],
-            [700,1000],
+            [0,1],
+            [0,5],
+            [0,20],
+            [0,30],
         ]
         self.lower_upper_freq_list = freq_list
         self.slider_values = []
@@ -405,11 +394,11 @@ class MainWindow(uiclass, baseclass):
             if i == 0:
                 label = QLabel('SVT')
             elif i == 1:  
-                label = QLabel('AFIB') 
-            elif i == 2:  
                 label = QLabel('VT') 
+            elif i == 2:  
+                label = QLabel('Original') 
             elif i == 3:  
-                label = QLabel('Music 4') 
+                label = QLabel('AFIB') 
             slider = QSlider()
             slider.setRange(0,10)
             slider.setValue(1)
@@ -495,7 +484,7 @@ class MainWindow(uiclass, baseclass):
             fourier_transform_mask = self.fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
             
             mean = (upper_freq - lower_freq)/2 
-            std_dev = mean  *5
+            std_dev = mean * 5
             gaus_signal = gaussian(len(fourier_transform_mask), std_dev) * amplitude
             
             
@@ -512,28 +501,6 @@ class MainWindow(uiclass, baseclass):
         pen_c = pg.mkPen(color=(255, 0, 0))
         self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot*100,pen= pen_c)
         self.generate_output_signal()
-
-
-        # lower_freq = index * (self.frequencies[-1] / total)
-        # upper_freq = (index + 1) * (self.frequencies[-1] / total)
-
-        # # Create a Gaussian signal
-
-
-
-        # # Create a frequency range mask
-        # freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
-        # mean = (upper_freq - lower_freq)/2 
-        # std_dev = 500  
-        # gaussian_signal = (np.exp(-(self.frequencies - mean)**2 / (2 * std_dev**2)) ) * amplitude
-
-        
-        # result = np.where(freq_range_mask, self.fourier_transform * gaussian_signal, self.fourier_transform)
-
-        # # self.fourier_transform = result
-        # self.frequency_graph.clear()
-        # self.frequency_graph.plot(self.frequencies, abs(result))
-        # self.generate_output_signal()
 
     def perform_hanning(self):
         
@@ -616,23 +583,6 @@ class MainWindow(uiclass, baseclass):
         pen_c = pg.mkPen(color=(255, 0, 0))
         self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot*100,pen= pen_c)
         self.generate_output_signal()
-        # lower_freq = 0
-        # upper_freq = 5000
-        # amplitude = 100
-        # # Create a Hamming window
-        # hamming_window = np.hamming(len(self.fourier_transform)) * amplitude
-
-        # # Create a frequency range mask
-        # freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
-
-        
-        # result = np.where(freq_range_mask, self.fourier_transform * hamming_window, self.fourier_transform)
-
-        # # Update self.fourier_transform
-        # self.fourier_transform = result
-
-        # self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
-        # self.generate_output_signal()
 
     def generate_output_signal(self):
         self.output_signal_graph.clear()
@@ -650,6 +600,8 @@ class MainWindow(uiclass, baseclass):
             if max_amplitude > 0:
                 y_vec /= max_amplitude
 
+            self.output_signal_graph.setXRange(x_vec[0], x_vec[-1])
+            self.output_signal_graph.setYRange(min(y_vec), max(y_vec))    
             
             audio = AudioSegment(
                 y_vec.astype(np.int16).tobytes(),
@@ -679,7 +631,8 @@ class MainWindow(uiclass, baseclass):
             if output_final_index >= len(self.output.x_vec) - 100:
                 print('rewind')
                 self.output_play_button.setText('Rewind')
-                self.output_current_time = 0;
+                self.output_current_time = 0
+                self.current_output_index = 0
     
     def play_time_output(self):
         if self.output is not None and self.signal.audio:
@@ -690,19 +643,24 @@ class MainWindow(uiclass, baseclass):
                 self.output_current_timer.stop()
             else:
                 self.output_audio_thread = Thread(target=self.play_ouput)
+                if self.current_output_index == 0:
+                    self.output_signal_graph.clear()
                 self.output_audio_thread.start()
-                self.output_current_timer.start(10)
+                self.output_current_timer.start(100)
                 self.output_playing = True
                 self.output_play_button.setText('Pause')
 
     def update_output_current_timer(self):
-        self.output_current_time += 0.01;
+        self.output_current_time += 0.1
         self.current_output_time.setText(
             f'{str(math.floor(self.output_current_time / 60)).zfill(2)}:{str(math.floor(self.output_current_time) % 60).zfill(2)}')
         self.output_slider.blockSignals(True)
         self.output_slider.setValue(math.ceil(self.output_current_time * 1000))
         self.output_slider.blockSignals(False)
         self.output_slider.repaint()
+        old_current_output_index = self.current_output_index
+        self.current_output_index += math.ceil(len(self.output.x_vec) / (self.output.x_vec[-1] * 10))
+        self.output_signal_graph.plot(self.output.x_vec[old_current_output_index:self.current_output_index], self.output.y_vec[old_current_output_index:self.current_output_index])
 
 
     def plot_output_spectograpgh(self):
