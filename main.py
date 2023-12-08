@@ -45,6 +45,7 @@ class MainWindow(uiclass, baseclass):
         self.output_playing = False
         self.output_current_timer = QTimer(self)
         self.output_current_time = 0
+        self.phase = None
 
         self.frequencies = None
         self.original_fourier_transform = None
@@ -204,6 +205,8 @@ class MainWindow(uiclass, baseclass):
             sampling_frequency = 1000
         # Frequency domain representation
         amplitude = self.signal.y_vec
+        
+        self.phase = np.angle(self.signal.y_vec)
         fourier_transform = np.fft.fft(amplitude) / len(amplitude)  # Normalize amplitude
         
         # fourier_transform = fourier_transform[range(int(len(amplitude) / 2))]  # Exclude sampling frequency
@@ -590,15 +593,16 @@ class MainWindow(uiclass, baseclass):
         
         # Generate output using inverse Fourier transform of self.frequency and self.fourier_transform
         if self.fourier_transform is not None:
-            y_vec = np.fft.ifft(self.fourier_transform).real  # take the real part of the complex numbers
+            
+            y_vec = np.fft.ifft((self.fourier_transform * np.exp(1j  * self.phase))).real  
             x_vec = self.signal.x_vec
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
             
-            # Normalization
-            max_amplitude = np.max(np.abs(y_vec))
-            if max_amplitude > 0:
-                y_vec /= max_amplitude
+            # # Normalization
+            # max_amplitude = np.max(np.abs(y_vec))
+            # if max_amplitude > 0:
+            #     y_vec /= max_amplitude
 
             self.output_signal_graph.setXRange(x_vec[0], x_vec[-1])
             self.output_signal_graph.setYRange(min(y_vec), max(y_vec))    
