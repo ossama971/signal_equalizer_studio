@@ -7,11 +7,14 @@ class SignalType(Enum):
 
 
 class Signal:
-    def __init__(self, x_vec, y_vec, audio=None, signal_type: SignalType = SignalType.CONTINUOUS) -> None:
+    def __init__(self, x_vec, y_vec,audio=None, signal_type: SignalType = SignalType.CONTINUOUS, is_playing = False, current_index = 0, current_time = 0) -> None:
         self.x_vec = x_vec
         self.y_vec = y_vec
         self.audio = audio
         self.signal_type = signal_type
+        self.is_playing = is_playing
+        self.current_index = current_index
+        self.current_time = current_time
 
     def get_sampling_frequency(self):
         if self.audio:

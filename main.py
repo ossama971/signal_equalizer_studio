@@ -40,60 +40,48 @@ class MainWindow(uiclass, baseclass):
         self.setupUi(self)
         self.setWindowTitle("Signal Equalizer Studio")
         self.signal = None
-        self.playing = False
         self.output : Signal = None
-        self.output_playing = False
         self.output_current_timer = QTimer(self)
-        self.output_current_time = 0
         self.phase = None
 
         self.frequencies = None
         self.original_fourier_transform = None
         self.fourier_transform = None
         self.current_timer = QTimer(self)
-        self.current_time = 0
         self.window_type = WindowType.RECTANGLE
         self.mode = ModeType.ANIMALS
         self.slider_values = []
         self.lower_upper_freq_list = []
-        self.current_input_index = 0
-        self.current_output_index = 0
         self._initialize_signals_slots()
 
     def _initialize_signals_slots(self):
         self.import_action.triggered.connect(self._import_signal_file)
-        self.input_play_button.pressed.connect(self.play_time_signal)
+        self.input_play_button.pressed.connect(self.play_time_input)
         self.output_play_button.pressed.connect(self.play_time_output)
-        self.input_slider.valueChanged.connect(self._on_input_slider_change)
-        self.output_slider.valueChanged.connect(self._on_output_slider_change)
-        self.rectangle_button.pressed.connect(self.rectangle)
-        self.gaussian_button.pressed.connect(self.gaussian)
-        self.hamming_button.pressed.connect(self.hamming)
-        self.hanning_button.pressed.connect(self.hanning)
-        self.uniform_range_action.triggered.connect(self.uniform_range_mode)
-        self.musical_instruments_action.triggered.connect(self.music_mode)
-        self.animal_sounds_action.triggered.connect(self.animals_mode)
-        self.ecg_abnormalities_action.triggered.connect(self.ecg_mode)
+        self.input_slider.valueChanged.connect(lambda value: self._on_slider_change(value,isInput=True, signal= self.signal))
+        self.output_slider.valueChanged.connect(lambda value: self._on_slider_change(value,isInput=False, signal= self.output))
+        self.rectangle_button.pressed.connect(lambda: self.change_window(WindowType.RECTANGLE))
+        self.gaussian_button.pressed.connect(lambda: self.change_window(WindowType.GAUSSIAN))
+        self.hamming_button.pressed.connect(lambda: self.change_window(WindowType.HAMMING))
+        self.hanning_button.pressed.connect(lambda: self.change_window(WindowType.HANNING))
+        self.uniform_range_action.triggered.connect(lambda: self.change_mode(ModeType.UNIFORM))
+        self.musical_instruments_action.triggered.connect(lambda: self.change_mode(ModeType.MUSIC))
+        self.animal_sounds_action.triggered.connect(lambda: self.change_mode(ModeType.ANIMALS))
+        self.ecg_abnormalities_action.triggered.connect(lambda: self.change_mode(ModeType.ECG))
         self.delete_action.triggered.connect(self.delete_all)
-        self.current_timer.timeout.connect(self.update_current_timer)
-        self.output_current_timer.timeout.connect(self.update_output_current_timer)
-        self.rectangle()
-        self.animals_mode()
+        self.current_timer.timeout.connect(lambda: self.update_timer(isInput= True))
+        self.output_current_timer.timeout.connect(lambda: self.update_timer(isInput= False))
+        self.change_window(WindowType.RECTANGLE)
+        self.change_mode(ModeType.ANIMALS)
         
 
     def delete_all(self):
         self.signal = None
-        self.playing = False
         self.output : Signal = None
-        self.output_playing = False
-        self.output_current_time = 0
         self.frequencies = None
         self.original_fourier_transform = None
         self.fourier_transform = None
-        self.current_time = 0
         self.slider_values = []
-        self.current_input_index = 0
-        self.current_output_index = 0
         self.input_spectrogram_graph.clear()
         self.output_spectrogram_graph.clear()
         self.frequency_graph.clear()
@@ -102,15 +90,10 @@ class MainWindow(uiclass, baseclass):
         
 
 
-    def _on_input_slider_change(self, value):
-        if self.signal:
-            self.current_time = value / 1000
-            self.update_current_timer()
-
-    def _on_output_slider_change(self, value):
-        if self.output:
-            self.output_current_time = value / 1000
-            self.update_output_current_timer()
+    def _on_slider_change(self, value, isInput, signal):
+        if signal:
+            signal.current_time = value / 1000
+            self.update_timer(isInput=isInput)
 
     def _import_signal_file(self):
         self.signal: Signal = get_signal_from_file(self)
@@ -139,17 +122,10 @@ class MainWindow(uiclass, baseclass):
                 upper_freq = (i + 1) * (self.frequencies[-1] / 10)
                 freq_list.append([lower_freq, upper_freq])
             self.lower_upper_freq_list = freq_list     
-        if self.window_type == WindowType.RECTANGLE:       
-            self.perform_rect()
-        elif self.window_type == WindowType.GAUSSIAN:       
-            self.perform_gaussian()    
-        elif self.window_type == WindowType.HAMMING:       
-            self.perform_hamming()    
-        elif self.window_type == WindowType.HANNING:       
-            self.perform_hanning()  
+        self.perform_window()    
 
         # plot input spectrograph
-        self.plot_input_spectrograph()
+        self.plot_spectrograph(isInput=True)
         self.generate_output_signal()  
 
     def plot_input_frequency(self):
@@ -158,20 +134,15 @@ class MainWindow(uiclass, baseclass):
         pen_c = pg.mkPen(color=(255, 255, 255))
         self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform), pen=pen_c)
 
-    def generatePgColormap(self, cm_name):
-        colormap = plt.get_cmap(cm_name)
-        colormap._init()
-        lut = (colormap._lut * 255).view(np.ndarray)  # Convert matplotlib colormap from 0-1 to 0 -255 for Qt
-        return lut
 
-
-    def plot_input_spectrograph(self):
+    def plot_spectrograph(self, isInput):
 
 
         # Compute the spectrogram using scipy's spectrogram function
-        amplitude = self.signal.y_vec
-        sampling_rate = self.signal.get_sampling_frequency()
-        f, t, Sxx = spectrogram(amplitude, fs=sampling_rate)
+        signal = self.signal if isInput else self.output 
+        amplitude = signal.y_vec
+        sampling_rate = signal.get_sampling_frequency()
+        _, _, Sxx = spectrogram(amplitude, fs=sampling_rate)
 
         # Plot the spectrogram
         np.seterr(divide='ignore')
@@ -181,21 +152,28 @@ class MainWindow(uiclass, baseclass):
         plt.ylabel('frequency')
         plt.colorbar(label='Intensity (dB)')  # Add colorbar
 
-        self.input_spectrogram_graph.clear()
+        if isInput:
+            graph = self.input_spectrogram_graph
+        else:
+            graph = self.output_spectrogram_graph
+
+        graph.clear()    
 
         # Create an ImageItem to display the spectrogram
         spectrogram_image = pg.ImageItem()
 
-        lut = self.generatePgColormap('viridis')
+        colormap = plt.get_cmap('viridis')
+        colormap._init()
+        lut = (colormap._lut * 255).view(np.ndarray)
         spectrogram_image.setLookupTable(lut)
 
         # Set the spectrogram data and scaling
         spectrogram_image.setImage(10 * np.log10(Sxx.T), autoLevels=True, autoDownsample=True)
-        self.input_spectrogram_graph.addItem(spectrogram_image)
+        graph.addItem(spectrogram_image)
 
         # Set labels for the axes
-        self.input_spectrogram_graph.setLabel('left', 'Frequency', units='Hz')
-        self.input_spectrogram_graph.setLabel('bottom', 'Time', units='s')
+        graph.setLabel('left', 'Frequency', units='Hz')
+        graph.setLabel('bottom', 'Time', units='s')
 
 
     def apply_fourier_transform(self):
@@ -208,9 +186,6 @@ class MainWindow(uiclass, baseclass):
         
         self.phase = np.angle(self.signal.y_vec)
         fourier_transform = np.fft.fft(amplitude) / len(amplitude)  # Normalize amplitude
-        
-        # fourier_transform = fourier_transform[range(int(len(amplitude) / 2))]  # Exclude sampling frequency
-        
         tp_count = len(amplitude)
 
         values = np.arange(int(tp_count))
@@ -221,62 +196,29 @@ class MainWindow(uiclass, baseclass):
 
         return frequencies, fourier_transform
 
-    def play_audio(self):
-        if self.signal.audio:
-            self.playing = True
-            final_index = np.abs(self.signal.x_vec - self.current_time).argmin()
-            sd.play(self.signal.y_vec[final_index:], self.signal.audio.frame_rate * 2)
-            sd.wait()
-            self.current_timer.stop()
-            self.playing = False
-            final_index = np.abs(self.signal.x_vec - self.current_time).argmin()
-            if final_index >= len(self.signal.x_vec) - 100:
-                self.input_play_button.setText('Rewind')
-                self.current_time = 0
-                self.current_input_index = 0
 
-    def play_time_signal(self):
+    def play_time_input(self):
         if self.signal.audio:
-            if self.playing:
+            if self.signal.is_playing:
                 sd.stop()
-                self.playing = False
+                self.signal.is_playing = False
                 self.input_play_button.setText('Play')
                 self.current_timer.stop()
 
             else:
-                self.audio_thread = Thread(target=self.play_audio)
-                if self.current_input_index == 0:
+                self.audio_thread = Thread(target=lambda: self.play_audio(isInput=True))
+                if self.signal.current_index == 0:
                     self.input_signal_graph.clear()
                 self.audio_thread.start()
                 self.current_timer.start(100)
-                self.playing = True
+                self.signal.is_playing = True
                 self.input_play_button.setText('Pause')
-
-    def update_current_timer(self):
-        self.current_time += 0.1
-        self.current_input_time.setText(
-            f'{str(math.floor(self.current_time / 60)).zfill(2)}:{str(math.floor(self.current_time) % 60).zfill(2)}')
-        self.input_slider.blockSignals(True)
-        self.input_slider.setValue(math.ceil(self.current_time * 1000))
-        self.input_slider.blockSignals(False)
-        self.input_slider.repaint()
-        old_current_input_index = self.current_input_index
-        self.current_input_index += math.ceil(len(self.signal.x_vec) / (self.signal.x_vec[-1] * 10))
-        self.input_signal_graph.plot(self.signal.x_vec[old_current_input_index:self.current_input_index], self.signal.y_vec[old_current_input_index:self.current_input_index])
 
 
     def slider_value_changed(self, index, value):
         self.slider_values[index].setText(f"{value}")
         if self.signal:
-            if self.window_type == WindowType.GAUSSIAN:
-                self.perform_gaussian()
-            elif self.window_type == WindowType.RECTANGLE:
-                self.perform_rect()    
-            elif self.window_type == WindowType.HAMMING:
-                self.perform_hamming()    
-            elif self.window_type == WindowType.HANNING:
-               self.perform_hanning()    
-        
+            self.perform_window()  
 
         
     def delete_sliders(self):  
@@ -290,191 +232,93 @@ class MainWindow(uiclass, baseclass):
                         widget.hide()
                 self.sliders_layout.removeItem(item)
                 item.layout().deleteLater()                
-        
-    def uniform_range_mode(self):
-        self.delete_all()
-        self.delete_sliders()
-        self.mode = ModeType.UNIFORM
-        self.slider_values = []
-        for i in range(10):
-            new_vertical_layout = QVBoxLayout()
-            label = QLabel(f'Range {i+1}')
-            slider = QSlider()
-            slider.setRange(0,10)
-            slider.setValue(1)
-            value_label = QLabel('1')
-            new_vertical_layout.addWidget(label)
-            new_vertical_layout.addWidget(slider)
-            new_vertical_layout.addWidget(value_label)
-            self.slider_values.append(value_label)
-            self.sliders_layout.addLayout(new_vertical_layout)
-            slider.valueChanged.connect(partial(self.slider_value_changed, i))
-            
+      
 
-    def animals_mode(self):
+    def change_mode(self, mode_type):
         self.delete_all()
         if self.sliders_layout.count() != 0:
             self.delete_sliders()
-        self.mode = ModeType.ANIMALS
-        freq_list = [
-            [0,400],
-            [400,800],
-            [800,1400],
-            [1400,5000],
-        ]
-        self.lower_upper_freq_list = freq_list
-        self.slider_values = []
-        for i in range(4):
-            new_vertical_layout = QVBoxLayout()
-            if i == 0:
-                label = QLabel('Bee')
-            elif i == 1:  
-                label = QLabel('Lion') 
-            elif i == 2:  
-                label = QLabel('Elephant') 
-            elif i == 3:  
-                label = QLabel('Horse') 
-            slider = QSlider()
-            slider.setRange(0,10)
-            slider.setValue(1)
-            value_label = QLabel('1')
-            self.slider_values.append(value_label)
-            new_vertical_layout.addWidget(label)
-            new_vertical_layout.addWidget(slider)
-            new_vertical_layout.addWidget(value_label)
-            self.sliders_layout.addLayout(new_vertical_layout)
-            # container.addLayout(new_vertical_layout)
-            # self.sliders_layout.addWidget(container)
-            slider.valueChanged.connect(partial(self.slider_value_changed, i))
+        self.mode = mode_type
+        freq_list = []
+        label_list = []
+        if mode_type == ModeType.ANIMALS:
+            freq_list = [
+                [0,400],
+                [400,800],
+                [800,1400],
+                [1400,5000],
+             ]
+            label_list = [ 'Bee', 'Lion', 'Elephant', 'Horse']
 
-    def music_mode(self):
-        self.delete_all()
-        self.delete_sliders()
-        self.mode = ModeType.MUSIC
-        freq_list = [
-            [0,250],
-            [250,800],
-            [800,2200],
-            [2200,4600],
-        ]
-        self.lower_upper_freq_list = freq_list
-        self.slider_values = []
-        for i in range(4):
-            new_vertical_layout = QVBoxLayout()
-            if i == 0:
-                label = QLabel('Kalimba')
-            elif i == 1:  
-                label = QLabel('Piano') 
-            elif i == 2:  
-                label = QLabel('Guitar') 
-            elif i == 3:  
-                label = QLabel('Violin') 
-            slider = QSlider()
-            slider.setRange(0,10)
-            slider.setValue(1)
-            value_label = QLabel('1')
-            self.slider_values.append(value_label)
-            new_vertical_layout.addWidget(label)
-            new_vertical_layout.addWidget(slider)
-            new_vertical_layout.addWidget(value_label)
-            self.sliders_layout.addLayout(new_vertical_layout)
-            slider.valueChanged.connect(partial(self.slider_value_changed, i))
-
-    def ecg_mode(self):
-        self.delete_all()
-        self.delete_sliders()
-        self.mode = ModeType.MUSIC
-        freq_list = [
+        elif mode_type == ModeType.ECG:
+            freq_list = [
             [0,1],
             [0,5],
             [0,20],
             [0,30],
         ]
+            label_list = [ 'SVT', 'VT', 'Original', 'AFIB']
+        elif mode_type == ModeType.MUSIC:
+            freq_list = [
+            [0,250],
+            [250,800],
+            [800,2200],
+            [2200,4600],
+        ]
+            label_list = [ 'Kalimba', 'Piano', 'Guitar', 'Violin']
+
         self.lower_upper_freq_list = freq_list
         self.slider_values = []
-        for i in range(4):
-            new_vertical_layout = QVBoxLayout()
-            if i == 0:
-                label = QLabel('SVT')
-            elif i == 1:  
-                label = QLabel('VT') 
-            elif i == 2:  
-                label = QLabel('Original') 
-            elif i == 3:  
-                label = QLabel('AFIB') 
-            slider = QSlider()
-            slider.setRange(0,10)
-            slider.setValue(1)
-            value_label = QLabel('1')
-            self.slider_values.append(value_label)
-            new_vertical_layout.addWidget(label)
-            new_vertical_layout.addWidget(slider)
-            new_vertical_layout.addWidget(value_label)
-            self.sliders_layout.addLayout(new_vertical_layout)
-            slider.valueChanged.connect(partial(self.slider_value_changed, i))
+        if not mode_type == ModeType.UNIFORM:
+            for i in range(4):
+                new_vertical_layout = QVBoxLayout()
+                label = QLabel(label_list[i])
+                slider = QSlider()
+                slider.setRange(0,10)
+                slider.setValue(1)
+                value_label = QLabel('1')
+                self.slider_values.append(value_label)
+                new_vertical_layout.addWidget(label)
+                new_vertical_layout.addWidget(slider)
+                new_vertical_layout.addWidget(value_label)
+                self.sliders_layout.addLayout(new_vertical_layout)
+                slider.valueChanged.connect(partial(self.slider_value_changed, i))
+        else:
+            for i in range(10):
+                new_vertical_layout = QVBoxLayout()
+                label = QLabel(f'Range {i+1}')
+                slider = QSlider()
+                slider.setRange(0,10)
+                slider.setValue(1)
+                value_label = QLabel('1')
+                new_vertical_layout.addWidget(label)
+                new_vertical_layout.addWidget(slider)
+                new_vertical_layout.addWidget(value_label)
+                self.slider_values.append(value_label)
+                self.sliders_layout.addLayout(new_vertical_layout)
+                slider.valueChanged.connect(partial(self.slider_value_changed, i))
 
 
-    def gaussian(self):
-        self.window_type = WindowType.GAUSSIAN
+    def change_window(self, window_type):
+        self.window_type = window_type
         if self.signal is not None: 
-            self.perform_gaussian()
-        self.gaussian_button.setStyleSheet("QPushButton { border: 2px solid #FFFFFF; }")
-        self.hamming_button.setStyleSheet("")
-        self.rectangle_button.setStyleSheet("")
-        self.hanning_button.setStyleSheet("")
-
-    def rectangle(self):
-        self.window_type = WindowType.RECTANGLE
-        if self.signal is not None: 
-            self.perform_rect()
-        self.gaussian_button.setStyleSheet("")
-        self.hamming_button.setStyleSheet("")
-        self.rectangle_button.setStyleSheet("QPushButton { border: 2px solid #FFFFFF; }")
-        self.hanning_button.setStyleSheet("")
-
-    def hamming(self):
-        self.window_type = WindowType.HAMMING
-        if self.signal is not None: 
-            self.perform_hamming()
-        self.gaussian_button.setStyleSheet("")
-        self.hamming_button.setStyleSheet("QPushButton { border: 2px solid #FFFFFF; }")
-        self.rectangle_button.setStyleSheet("")
-        self.hanning_button.setStyleSheet("")
-
-    def hanning(self):
-        self.window_type = WindowType.HANNING
-        if self.signal is not None: 
-            self.perform_hanning()
+            self.perform_window()
         self.gaussian_button.setStyleSheet("")
         self.hamming_button.setStyleSheet("")
         self.rectangle_button.setStyleSheet("")
-        self.hanning_button.setStyleSheet("QPushButton { border: 2px solid #FFFFFF; }")
-    
-    def perform_rect(self): 
-        total = len(self.slider_values)
-        result = self.original_fourier_transform
-        all_wave = np.array([])
-        window_plot = np.array([])
-        for i in range(total):  
-            lower_freq = self.lower_upper_freq_list[i][0]
-            upper_freq = self.lower_upper_freq_list[i][1]
-            amplitude = int(self.slider_values[i].text())
-            freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
-            fourier_transform_mask = self.fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
-            rect_signal = np.ones(len(fourier_transform_mask)) * amplitude
-            result = np.where(freq_range_mask, fourier_transform_mask * rect_signal, fourier_transform_mask)
-            all_wave = np.concatenate((all_wave, result))
-            window_plot = np.concatenate((window_plot, rect_signal))
+        self.hanning_button.setStyleSheet("")
+        style_sheet = "QPushButton { border: 2px solid #FFFFFF; }"  
+        if window_type == WindowType.GAUSSIAN:
+            self.gaussian_button.setStyleSheet(style_sheet)
+        elif window_type == WindowType.HAMMING:
+            self.hamming_button.setStyleSheet(style_sheet)
+        elif window_type == WindowType.HANNING:
+            self.hanning_button.setStyleSheet(style_sheet)
+        elif window_type == WindowType.RECTANGLE:
+            self.rectangle_button.setStyleSheet(style_sheet)
 
 
-        self.fourier_transform[:len(all_wave)] = all_wave
-        self.frequency_graph.clear()
-        self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
-        pen_c = pg.mkPen(color=(255, 0, 0))
-        self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot * 100,pen= pen_c)
-        self.generate_output_signal() 
-
-    def perform_gaussian(self):
+    def perform_window(self):
         total = len(self.slider_values)
         result = self.original_fourier_transform
         all_wave = np.array([])
@@ -485,17 +329,20 @@ class MainWindow(uiclass, baseclass):
             amplitude = int(self.slider_values[i].text())
             freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
             fourier_transform_mask = self.fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
-            
-            mean = (upper_freq - lower_freq)/2 
-            std_dev = mean * 5
-            gaus_signal = gaussian(len(fourier_transform_mask), std_dev) * amplitude
-            
-            
-            # gaussian_signal = (np.exp(-(freq_range_mask - mean)**2 / (2 * std_dev**2)) ) * amplitude
-            # full_gaussian_signal = (np.exp(-(self.frequencies - mean)**2 / (2 * std_dev**2)) ) * amplitude
-            result = np.where(freq_range_mask, fourier_transform_mask * gaus_signal, fourier_transform_mask)
+            if self.window_type == WindowType.GAUSSIAN:
+                mean = (upper_freq - lower_freq)/2 
+                std_dev = mean * 5
+                signal = gaussian(len(fourier_transform_mask), std_dev) * amplitude
+            elif self.window_type == WindowType.RECTANGLE:
+                signal = np.ones(len(fourier_transform_mask)) * amplitude
+            elif self.window_type == WindowType.HAMMING:
+                signal = np.hamming(len(fourier_transform_mask)) * amplitude
+            elif self.window_type == WindowType.HANNING:
+                signal = np.hanning(len(fourier_transform_mask)) * amplitude
+
+            result = np.where(freq_range_mask, fourier_transform_mask * signal, fourier_transform_mask)
             all_wave = np.concatenate((all_wave, result))
-            window_plot = np.concatenate((window_plot,gaus_signal))
+            window_plot = np.concatenate((window_plot, signal))
 
 
         self.fourier_transform[:len(all_wave)] = all_wave
@@ -505,87 +352,6 @@ class MainWindow(uiclass, baseclass):
         self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot*100,pen= pen_c)
         self.generate_output_signal()
 
-    def perform_hanning(self):
-        
-        total = len(self.slider_values)
-        result = self.original_fourier_transform
-        all_wave = np.array([])
-        window_plot = np.array([])
-        for i in range(total):
-            lower_freq = self.lower_upper_freq_list[i][0]
-            upper_freq = self.lower_upper_freq_list[i][1]
-            amplitude = int(self.slider_values[i].text())
-            freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
-            fourier_transform_mask = self.fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
-            
-            mean = (upper_freq - lower_freq)/2 
-            std_dev = 500  
-            hanning_signal = np.hanning(len(fourier_transform_mask)) * amplitude
-            
-            
-            # gaussian_signal = (np.exp(-(freq_range_mask - mean)**2 / (2 * std_dev**2)) ) * amplitude
-            # full_gaussian_signal = (np.exp(-(self.frequencies - mean)**2 / (2 * std_dev**2)) ) * amplitude
-            result = np.where(freq_range_mask, fourier_transform_mask * hanning_signal, fourier_transform_mask)
-            all_wave = np.concatenate((all_wave, result))
-            window_plot = np.concatenate((window_plot,hanning_signal))
-
-
-        self.fourier_transform[:len(all_wave)] = all_wave
-        self.frequency_graph.clear()
-        self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
-        pen_c = pg.mkPen(color=(255, 0, 0))
-        self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot*100,pen= pen_c)
-        self.generate_output_signal()
-        # lower_freq = 0
-        # upper_freq = 5000
-        # amplitude = 100
-
-        # # Create a Hanning window
-        # hanning_window = np.hanning(len(self.fourier_transform)) * amplitude
-        
-
-        # # Create a frequency range mask
-        # freq_range_mask = (self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)
-
-        
-        # result = np.where(freq_range_mask, self.fourier_transform * hanning_window, self.fourier_transform)
-
-        # # Update self.fourier_transform
-        # self.fourier_transform = result
-
-        # self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform))
-        # self.generate_output_signal()
-
-    def perform_hamming(self):
-        total = len(self.slider_values)
-        result = self.original_fourier_transform
-        all_wave = np.array([])
-        window_plot = np.array([])
-        for i in range(total):
-            lower_freq = self.lower_upper_freq_list[i][0]
-            upper_freq = self.lower_upper_freq_list[i][1]
-            amplitude = int(self.slider_values[i].text())
-            freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
-            fourier_transform_mask = self.fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
-            
-            mean = (upper_freq - lower_freq)/2 
-            std_dev = 500  
-            hamming_signal = np.hamming(len(fourier_transform_mask)) * amplitude
-            
-            
-            # gaussian_signal = (np.exp(-(freq_range_mask - mean)**2 / (2 * std_dev**2)) ) * amplitude
-            # full_gaussian_signal = (np.exp(-(self.frequencies - mean)**2 / (2 * std_dev**2)) ) * amplitude
-            result = np.where(freq_range_mask, fourier_transform_mask * hamming_signal, fourier_transform_mask)
-            all_wave = np.concatenate((all_wave, result))
-            window_plot = np.concatenate((window_plot,hamming_signal))
-
-
-        self.fourier_transform[:len(all_wave)] = all_wave
-        self.frequency_graph.clear()
-        self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
-        pen_c = pg.mkPen(color=(255, 0, 0))
-        self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot*100,pen= pen_c)
-        self.generate_output_signal()
 
     def generate_output_signal(self):
         self.output_signal_graph.clear()
@@ -598,12 +364,6 @@ class MainWindow(uiclass, baseclass):
             x_vec = self.signal.x_vec
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
-            
-            # # Normalization
-            # max_amplitude = np.max(np.abs(y_vec))
-            # if max_amplitude > 0:
-            #     y_vec /= max_amplitude
-
             self.output_signal_graph.setXRange(x_vec[0], x_vec[-1])
             self.output_signal_graph.setYRange(min(y_vec), max(y_vec))    
             
@@ -619,86 +379,74 @@ class MainWindow(uiclass, baseclass):
             self.output_slider.setValue(0)
             self.output_total_time.setText(
             f'{str(math.floor(self.output.x_vec[-1] / 60)).zfill(2)}:{str(math.floor(self.output.x_vec[-1]) % 60).zfill(2)}')
-            self.plot_output_spectograpgh()
+            self.plot_spectrograph(isInput=False)
 
 
-
-    
-    def play_ouput(self):
-        if self.output.audio:
-            self.output_playing = True
-            output_final_index = np.abs(self.output.x_vec - self.output_current_time).argmin()
-            sd.play(self.output.y_vec[output_final_index:], self.output.audio.frame_rate * 2)
+    def play_audio(self, isInput):
+        signal = self.signal if isInput else self.output
+        if signal.audio:
+            if isInput:
+                self.signal.is_playing = True
+                button = self.input_play_button
+            else:    
+                self.output.is_playing = True
+                button = self.output_play_button
+            final_index = np.abs(signal.x_vec - signal.current_time).argmin()
+            sd.play(signal.y_vec[final_index:], signal.audio.frame_rate * 2)
             sd.wait()
-            self.output_current_timer.stop()
-            self.output_playing = False
-            if output_final_index >= len(self.output.x_vec) - 100:
-                print('rewind')
-                self.output_play_button.setText('Rewind')
-                self.output_current_time = 0
-                self.current_output_index = 0
-    
+            self.current_timer.stop() if isInput else self.output_current_timer.stop()
+            if isInput:
+                self.signal.is_playing = False
+            else:    
+               self.output.is_playing = False
+            
+            if final_index >= len(signal.x_vec) - 100:
+                button.setText('Rewind')
+                signal.current_time = 0
+                signal.current_index = 0
+
+
+
     def play_time_output(self):
         if self.output is not None and self.signal.audio:
-            if self.output_playing:
+            if self.output.is_playing:
                 sd.stop()
-                self.output_playing = False
+                self.output.is_playing = False
                 self.output_play_button.setText('Play')
                 self.output_current_timer.stop()
             else:
-                self.output_audio_thread = Thread(target=self.play_ouput)
-                if self.current_output_index == 0:
+                self.output_audio_thread = Thread(target=lambda: self.play_audio(isInput=False))
+                if self.output.current_index == 0:
                     self.output_signal_graph.clear()
                 self.output_audio_thread.start()
                 self.output_current_timer.start(100)
-                self.output_playing = True
+                self.output.is_playing = True
                 self.output_play_button.setText('Pause')
 
-    def update_output_current_timer(self):
-        self.output_current_time += 0.1
-        self.current_output_time.setText(
-            f'{str(math.floor(self.output_current_time / 60)).zfill(2)}:{str(math.floor(self.output_current_time) % 60).zfill(2)}')
-        self.output_slider.blockSignals(True)
-        self.output_slider.setValue(math.ceil(self.output_current_time * 1000))
-        self.output_slider.blockSignals(False)
-        self.output_slider.repaint()
-        old_current_output_index = self.current_output_index
-        self.current_output_index += math.ceil(len(self.output.x_vec) / (self.output.x_vec[-1] * 10))
-        self.output_signal_graph.plot(self.output.x_vec[old_current_output_index:self.current_output_index], self.output.y_vec[old_current_output_index:self.current_output_index])
 
+    def update_timer(self, isInput):
+        self.signal.current_time += 0.1
+        if isInput:
+            signal = self.signal
+            graph = self.input_signal_graph
+        else:
+            signal = self.output
+            graph = self.output_signal_graph
 
-    def plot_output_spectograpgh(self):
-        # Compute the spectrogram using scipy's spectrogram function
-        amplitude = self.output.y_vec
-        sampling_rate = self.output.get_sampling_frequency()
-        _, _, Sxx = spectrogram(amplitude, fs=sampling_rate)
+        current_text = self.current_input_time if isInput else self.current_output_time
+        current_slider = self.input_slider if isInput else self.output_slider
 
-        # Plot the spectrogram
-        np.seterr(divide='ignore')
-        plt.pcolormesh(10 * np.log10(Sxx), shading='auto')
-        plt.title('Spectrograph')
-        plt.xlabel('time')
-        plt.ylabel('frequency')
-        plt.colorbar(label='Intensity (dB)')
-
-        self.output_spectrogram_graph.clear()
-
-        spectrogram_image = pg.ImageItem()
-        lut = self.generatePgColormap('viridis')
-        spectrogram_image.setLookupTable(lut)
-
-        # Set the spectrogram data and scaling
-        spectrogram_image.setImage(10 * np.log10(Sxx.T), autoLevels=True, autoDownsample=True)
-        self.output_spectrogram_graph.addItem(spectrogram_image)
-
-        # Set labels for the axes
-        self.output_spectrogram_graph.setLabel('left', 'Frequency', units='Hz')
-        self.output_spectrogram_graph.setLabel('bottom', 'Time', units='s')
-    
-    
-    
-
+        current_text.setText(
+            f'{str(math.floor(self.signal.current_time / 60)).zfill(2)}:{str(math.floor(self.signal.current_time) % 60).zfill(2)}')
+        current_slider.blockSignals(True)
+        current_slider.setValue(math.ceil(self.signal.current_time * 1000))
+        current_slider.blockSignals(False)
+        current_slider.repaint()
         
+        old_current_output_index = signal.current_index
+        signal.current_index += math.ceil(len(signal.x_vec) / (signal.x_vec[-1] * 10))
+        graph.plot(signal.x_vec[old_current_output_index:signal.current_index], signal.y_vec[old_current_output_index:signal.current_index])
+
 
 
 def main():
