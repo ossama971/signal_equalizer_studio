@@ -334,7 +334,7 @@ class MainWindow(uiclass, baseclass):
             upper_freq = self.lower_upper_freq_list[i][1]
             amplitude = int(self.slider_values[i].text())
             freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
-            fourier_transform_mask = self.fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
+            fourier_transform_mask = self.original_fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
             if self.window_type == WindowType.GAUSSIAN:
                 mean = (upper_freq - lower_freq)/2 
                 std_dev = mean * 5
