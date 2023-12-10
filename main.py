@@ -136,7 +136,6 @@ class MainWindow(uiclass, baseclass):
 
     def plot_spectrograph(self):
 
-
         # Compute the spectrogram using scipy's spectrogram function
         signal =  self.output 
         amplitude = signal.y_vec
@@ -181,7 +180,6 @@ class MainWindow(uiclass, baseclass):
             self.input_spectrogram_graph.setLabel('left', 'Frequency', units='Hz')
             self.input_spectrogram_graph.setLabel('bottom', 'Time', units='s')
             self.is_first_build = False
-
 
 
     def apply_fourier_transform(self):
@@ -382,9 +380,18 @@ class MainWindow(uiclass, baseclass):
                 channels=1  
             )
             self.output = Signal(x_vec, y_vec, audio)
+            sd.stop()
+            self.output.is_playing = False
+            self.output_play_button.setText('Play')
+            self.output_current_timer.stop()
+            self.output_current_timer.stop()
+            self.output.current_time = 0
+            self.output.current_index = 0
             self.output_slider.setMinimum(0)
             self.output_slider.setMaximum(int(self.output.x_vec[-1] * 1000))
+            self.output_slider.blockSignals(True)
             self.output_slider.setValue(0)
+            self.output_slider.blockSignals(False)
             self.output_total_time.setText(
             f'{str(math.floor(self.output.x_vec[-1] / 60)).zfill(2)}:{str(math.floor(self.output.x_vec[-1]) % 60).zfill(2)}')
             self.plot_spectrograph()
@@ -433,7 +440,6 @@ class MainWindow(uiclass, baseclass):
 
 
     def update_timer(self, isInput):
-        self.signal.current_time += 0.1
         if isInput:
             signal = self.signal
             graph = self.input_signal_graph
@@ -441,16 +447,16 @@ class MainWindow(uiclass, baseclass):
             signal = self.output
             graph = self.output_signal_graph
 
+        signal.current_time += 0.1    
         current_text = self.current_input_time if isInput else self.current_output_time
         current_slider = self.input_slider if isInput else self.output_slider
 
         current_text.setText(
-            f'{str(math.floor(self.signal.current_time / 60)).zfill(2)}:{str(math.floor(self.signal.current_time) % 60).zfill(2)}')
+            f'{str(math.floor(signal.current_time / 60)).zfill(2)}:{str(math.floor(signal.current_time) % 60).zfill(2)}')
         current_slider.blockSignals(True)
-        current_slider.setValue(math.ceil(self.signal.current_time * 1000))
+        current_slider.setValue(math.ceil(signal.current_time * 1000))
         current_slider.blockSignals(False)
         current_slider.repaint()
-        
         old_current_output_index = signal.current_index
         signal.current_index += math.ceil(len(signal.x_vec) / (signal.x_vec[-1] * 10))
         graph.plot(signal.x_vec[old_current_output_index:signal.current_index], signal.y_vec[old_current_output_index:signal.current_index])
