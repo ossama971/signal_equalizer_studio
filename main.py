@@ -258,10 +258,10 @@ class MainWindow(uiclass, baseclass):
 
         elif mode_type == ModeType.ECG:
             freq_list = [
-            [0,1],
-            [0,5],
-            [0,20],
-            [0,30],
+            [0.05,0.5],
+            [0.5, 40],
+            [40,60],
+            [60,250],
         ]
             label_list = [ 'SVT', 'VT', 'Original', 'AFIB']
         elif mode_type == ModeType.MUSIC:
@@ -355,7 +355,7 @@ class MainWindow(uiclass, baseclass):
         self.frequency_graph.clear()
         self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
         pen_c = pg.mkPen(color=(255, 0, 0))
-        self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot*100,pen= pen_c)
+        self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot,pen= pen_c)
         self.generate_output_signal()
 
 
@@ -371,15 +371,19 @@ class MainWindow(uiclass, baseclass):
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
             self.output_signal_graph.setXRange(x_vec[0], x_vec[-1])
-            self.output_signal_graph.setYRange(min(y_vec), max(y_vec))    
-            
-            audio = AudioSegment(
+            self.output_signal_graph.setYRange(min(y_vec), max(y_vec))
+            if self.signal.audio is not None:
+                audio = AudioSegment(
                 y_vec.astype(np.int16).tobytes(),
                 frame_rate= None if self.signal.audio is None else self.signal.audio.frame_rate,
                 sample_width=2,
                 channels=1  
             )
-            self.output = Signal(x_vec, y_vec, audio)
+                self.output = Signal(x_vec, y_vec, audio)
+
+            else:
+                self.output = Signal(x_vec, y_vec, audio= None)
+
             sd.stop()
             self.output.is_playing = False
             self.output_play_button.setText('Play')
