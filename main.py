@@ -183,15 +183,12 @@ class MainWindow(uiclass, baseclass):
 
 
     def apply_fourier_transform(self):
-        if self.signal.audio:
-            sampling_frequency = self.signal.audio.frame_rate
-        else:
-            sampling_frequency = 1000
+        sampling_frequency = self.signal.audio.frame_rate if self.signal.audio else 1000
         # Frequency domain representation
         amplitude = self.signal.y_vec
         
         self.phase = np.angle(self.signal.y_vec)
-        fourier_transform = np.fft.fft(amplitude) / len(amplitude)  # Normalize amplitude
+        fourier_transform = np.fft.fft(amplitude) # Normalize amplitude
         tp_count = len(amplitude)
 
         values = np.arange(int(tp_count))
@@ -205,13 +202,12 @@ class MainWindow(uiclass, baseclass):
 
     def play_time_input(self):
         if self.signal.audio:
-            if self.signal.is_playing:
+            def is_playing_logic():
                 sd.stop()
                 self.signal.is_playing = False
                 self.input_play_button.setText('Play')
                 self.current_timer.stop()
-
-            else:
+            def is_not_playing_logic():
                 self.audio_thread = Thread(target=lambda: self.play_audio(isInput=True))
                 if self.signal.current_index == 0:
                     self.input_signal_graph.clear()
@@ -219,6 +215,12 @@ class MainWindow(uiclass, baseclass):
                 self.current_timer.start(100)
                 self.signal.is_playing = True
                 self.input_play_button.setText('Pause')
+
+            functions = {
+                True: lambda: is_playing_logic(),
+                False: lambda: is_not_playing_logic(),
+            }    
+            functions[self.signal.is_playing]()
 
 
     def slider_value_changed(self, index, value):
@@ -245,37 +247,7 @@ class MainWindow(uiclass, baseclass):
         if self.sliders_layout.count() != 0:
             self.delete_sliders()
         self.mode = mode_type
-        freq_list = []
-        label_list = []
-        if mode_type == ModeType.ANIMALS:
-            freq_list = [
-                [0,400],
-                [400,800],
-                [800,1400],
-                [1400,5000],
-             ]
-            label_list = [ 'Bee', 'Lion', 'Elephant', 'Horse']
-
-        elif mode_type == ModeType.ECG:
-            freq_list = [
-            [0.05,0.5],
-            [0.5, 40],
-            [40,60],
-            [60,250],
-        ]
-            label_list = [ 'SVT', 'VT', 'Original', 'AFIB']
-        elif mode_type == ModeType.MUSIC:
-            freq_list = [
-            [0,250],
-            [250,800],
-            [800,2200],
-            [2200,4600],
-        ]
-            label_list = [ 'Kalimba', 'Piano', 'Guitar', 'Violin']
-
-        self.lower_upper_freq_list = freq_list
-        self.slider_values = []
-        if not mode_type == ModeType.UNIFORM:
+        def draw_sliders(label_list):
             for i in range(4):
                 new_vertical_layout = QVBoxLayout()
                 label = QLabel(label_list[i])
@@ -289,7 +261,40 @@ class MainWindow(uiclass, baseclass):
                 new_vertical_layout.addWidget(value_label)
                 self.sliders_layout.addLayout(new_vertical_layout)
                 slider.valueChanged.connect(partial(self.slider_value_changed, i))
-        else:
+        def animals_logic():
+            freq_list = [
+                [0,400],
+                [400,800],
+                [800,1400],
+                [1400,5000],
+             ]
+            label_list = [ 'Bee', 'Lion', 'Elephant', 'Horse']
+            self.lower_upper_freq_list = freq_list
+            draw_sliders(label_list)
+
+        def music_logic():
+            freq_list = [
+            [0,250],
+            [250,800],
+            [800,2200],
+            [2200,4600],
+        ]
+            label_list = [ 'Kalimba', 'Piano', 'Guitar', 'Violin']
+            self.lower_upper_freq_list = freq_list
+            draw_sliders(label_list)
+
+        def ecg_logic():
+            freq_list = [
+            [10,30],
+            [30, 70],
+            [70,120],
+            [120,180],
+        ]
+            label_list = [ 'SVTA', 'AFIB', 'WPW', 'Normal']
+            self.lower_upper_freq_list = freq_list
+            draw_sliders(label_list)
+
+        def uniform_logic():
             for i in range(10):
                 new_vertical_layout = QVBoxLayout()
                 label = QLabel(f'Range {i+1}')
@@ -304,6 +309,14 @@ class MainWindow(uiclass, baseclass):
                 self.sliders_layout.addLayout(new_vertical_layout)
                 slider.valueChanged.connect(partial(self.slider_value_changed, i))
 
+        mode_dict = {
+            ModeType.ANIMALS: lambda: animals_logic(),
+            ModeType.MUSIC: lambda: music_logic(),
+            ModeType.ECG: lambda: ecg_logic(),
+            ModeType.UNIFORM: lambda: uniform_logic(),
+        }    
+        mode_dict[self.mode]()
+
 
     def change_window(self, window_type):
         self.window_type = window_type
@@ -314,14 +327,13 @@ class MainWindow(uiclass, baseclass):
         self.rectangle_button.setStyleSheet("")
         self.hanning_button.setStyleSheet("")
         style_sheet = "QPushButton { border: 2px solid #FFFFFF; }"  
-        if window_type == WindowType.GAUSSIAN:
-            self.gaussian_button.setStyleSheet(style_sheet)
-        elif window_type == WindowType.HAMMING:
-            self.hamming_button.setStyleSheet(style_sheet)
-        elif window_type == WindowType.HANNING:
-            self.hanning_button.setStyleSheet(style_sheet)
-        elif window_type == WindowType.RECTANGLE:
-            self.rectangle_button.setStyleSheet(style_sheet)
+        functions = {
+            WindowType.GAUSSIAN: lambda : self.gaussian_button.setStyleSheet(style_sheet),
+            WindowType.RECTANGLE: lambda : self.rectangle_button.setStyleSheet(style_sheet),
+            WindowType.HAMMING: lambda : self.hamming_button.setStyleSheet(style_sheet),
+            WindowType.HANNING: lambda : self.hanning_button.setStyleSheet(style_sheet),
+        }
+        functions[self.window_type]()
 
 
     def perform_window(self):
@@ -335,16 +347,21 @@ class MainWindow(uiclass, baseclass):
             amplitude = int(self.slider_values[i].text())
             freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
             fourier_transform_mask = self.original_fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
-            if self.window_type == WindowType.GAUSSIAN:
-                mean = (upper_freq - lower_freq)/2 
-                std_dev = mean * 5
-                signal = gaussian(len(fourier_transform_mask), std_dev) * amplitude
-            elif self.window_type == WindowType.RECTANGLE:
-                signal = np.ones(len(fourier_transform_mask)) * amplitude
-            elif self.window_type == WindowType.HAMMING:
-                signal = np.hamming(len(fourier_transform_mask)) * amplitude
-            elif self.window_type == WindowType.HANNING:
-                signal = np.hanning(len(fourier_transform_mask)) * amplitude
+            def gaussian_logic():
+                return gaussian(len(fourier_transform_mask), np.std(self.frequencies)) * amplitude
+            def rect_logic():
+                return np.ones(len(fourier_transform_mask)) * amplitude
+            def ham_logic():
+                return np.hamming(len(fourier_transform_mask)) * amplitude
+            def han_logic():
+                return np.hanning(len(fourier_transform_mask)) * amplitude
+            functions = {
+                WindowType.GAUSSIAN: lambda : gaussian_logic(),
+                WindowType.RECTANGLE: lambda : rect_logic(),
+                WindowType.HAMMING: lambda : ham_logic(),
+                WindowType.HANNING: lambda : han_logic(),
+            }
+            signal = functions[self.window_type]()
 
             result = np.where(freq_range_mask, fourier_transform_mask * signal, fourier_transform_mask)
             all_wave = np.concatenate((all_wave, result))
@@ -353,9 +370,9 @@ class MainWindow(uiclass, baseclass):
 
         self.fourier_transform[:len(all_wave)] = all_wave
         self.frequency_graph.clear()
-        self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
+        self.frequency_graph.plot(self.frequencies[10:], abs(self.original_fourier_transform.real)[10:])
         pen_c = pg.mkPen(color=(255, 0, 0))
-        self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot,pen= pen_c)
+        self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot * (max(self.fourier_transform.real)/10),pen= pen_c)
         self.generate_output_signal()
 
 
@@ -366,7 +383,7 @@ class MainWindow(uiclass, baseclass):
         # Generate output using inverse Fourier transform of self.frequency and self.fourier_transform
         if self.fourier_transform is not None:
             
-            y_vec = np.fft.ifft((self.fourier_transform * np.exp(1j  * self.phase))).real  
+            y_vec = np.int16(np.fft.ifft((self.fourier_transform * np.exp(1j  * self.phase))).real)  
             x_vec = self.signal.x_vec
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
@@ -403,21 +420,25 @@ class MainWindow(uiclass, baseclass):
 
     def play_audio(self, isInput):
         signal = self.signal if isInput else self.output
+        def input_logic():
+            self.signal.is_playing = True
+            return self.input_play_button
+        def output_logic():
+             self.output.is_playing = True
+             return self.output_play_button
+        
+        fun_dict = {
+            True: lambda: input_logic(),
+            False: lambda: output_logic(),
+        }
+        
         if signal.audio:
-            if isInput:
-                self.signal.is_playing = True
-                button = self.input_play_button
-            else:    
-                self.output.is_playing = True
-                button = self.output_play_button
+            button = fun_dict[isInput]()
             final_index = np.abs(signal.x_vec - signal.current_time).argmin()
             sd.play(signal.y_vec[final_index:], signal.audio.frame_rate * 2)
             sd.wait()
             self.current_timer.stop() if isInput else self.output_current_timer.stop()
-            if isInput:
-                self.signal.is_playing = False
-            else:    
-               self.output.is_playing = False
+            signal.is_playing = False
             
             if final_index >= len(signal.x_vec) - 100:
                 button.setText('Rewind')
@@ -428,12 +449,14 @@ class MainWindow(uiclass, baseclass):
 
     def play_time_output(self):
         if self.output is not None and self.signal.audio:
-            if self.output.is_playing:
+
+            def is_playing_logic():
                 sd.stop()
                 self.output.is_playing = False
                 self.output_play_button.setText('Play')
                 self.output_current_timer.stop()
-            else:
+
+            def is_not_playing_logic():
                 self.output_audio_thread = Thread(target=lambda: self.play_audio(isInput=False))
                 if self.output.current_index == 0:
                     self.output_signal_graph.clear()
@@ -442,14 +465,29 @@ class MainWindow(uiclass, baseclass):
                 self.output.is_playing = True
                 self.output_play_button.setText('Pause')
 
+            functions = {
+                True: lambda: is_playing_logic(),
+                False: lambda: is_not_playing_logic(),
+            }    
+            functions[self.output.is_playing]()
+
 
     def update_timer(self, isInput):
-        if isInput:
+        def is_input_logic():
             signal = self.signal
             graph = self.input_signal_graph
-        else:
+            return signal, graph
+        
+        def is_output_logic():
             signal = self.output
             graph = self.output_signal_graph
+            return signal, graph
+        
+        functions = {
+            True: lambda: is_input_logic(),
+            False: lambda: is_output_logic(),
+        }
+        signal, graph = functions[isInput]()
 
         signal.current_time += 0.1    
         current_text = self.current_input_time if isInput else self.current_output_time
