@@ -129,6 +129,7 @@ class MainWindow(uiclass, baseclass):
 
     def plot_input_frequency(self):
         self.frequencies, self.fourier_transform = self.apply_fourier_transform()
+        # self.fourier_transform = np.log10(abs(self.fourier_transform))
         self.original_fourier_transform = self.fourier_transform.copy()
         pen_c = pg.mkPen(color=(255, 255, 255))
         self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform), pen=pen_c)
@@ -187,15 +188,18 @@ class MainWindow(uiclass, baseclass):
         # Frequency domain representation
         amplitude = self.signal.y_vec
         
-        self.phase = np.angle(self.signal.y_vec)
-        fourier_transform = np.fft.fft(amplitude) # Normalize amplitude
+    
+
+        fourier_transform = np.fft.rfft(amplitude)
+        self.phase = np.angle(fourier_transform)
         tp_count = len(amplitude)
 
-        values = np.arange(int(tp_count))
+        # values = np.arange(int(tp_count))
 
-        time_period = tp_count / sampling_frequency
+        # time_period = tp_count / sampling_frequency
 
-        frequencies = values / time_period
+        # frequencies = values / time_period
+        frequencies = np.fft.rfftfreq(tp_count, 1 / sampling_frequency)
 
         return frequencies, fourier_transform
 
@@ -383,7 +387,7 @@ class MainWindow(uiclass, baseclass):
         # Generate output using inverse Fourier transform of self.frequency and self.fourier_transform
         if self.fourier_transform is not None:
             
-            y_vec = np.int16(np.fft.ifft((self.fourier_transform * np.exp(1j  * self.phase))).real)  
+            y_vec = np.int16(np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase))).real)  
             x_vec = self.signal.x_vec
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
