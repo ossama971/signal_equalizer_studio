@@ -45,6 +45,7 @@ class MainWindow(uiclass, baseclass):
         self.phase = None
         self.frequencies = None
         self.original_fourier_transform = None
+        self.magnitude_dB = None
         self.fourier_transform = None
         self.current_timer = QTimer(self)
         self.window_type = WindowType.RECTANGLE
@@ -128,11 +129,21 @@ class MainWindow(uiclass, baseclass):
         self.generate_output_signal()  
 
     def plot_input_frequency(self):
+
         self.frequencies, self.fourier_transform = self.apply_fourier_transform()
-        # self.fourier_transform = np.log10(abs(self.fourier_transform))
-        self.original_fourier_transform = self.fourier_transform.copy()
+        self.original_fourier_transform = self.fourier_transform
+
+        # Apply logarithmic transformation to y-axis values
+        self.magnitude_dB = 20 * np.log10(abs(self.fourier_transform))
+
+        # Plot the frequency graph
         pen_c = pg.mkPen(color=(255, 255, 255))
-        self.frequency_graph.plot(self.frequencies, abs(self.fourier_transform), pen=pen_c)
+        self.frequency_graph.plot(self.frequencies, self.magnitude_dB, pen=pen_c)
+
+        # Optionally, you can set labels for the axes
+        self.frequency_graph.setLabel('left', 'Magnitude (dB)' )
+        self.frequency_graph.setLabel('bottom', 'Frequency', units='Hz')
+
 
 
     def plot_spectrograph(self):
@@ -192,6 +203,7 @@ class MainWindow(uiclass, baseclass):
 
         fourier_transform = np.fft.rfft(amplitude)
         self.phase = np.angle(fourier_transform)
+        self.fourier_transform = np.abs(fourier_transform)
         tp_count = len(amplitude)
 
         # values = np.arange(int(tp_count))
