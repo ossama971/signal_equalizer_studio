@@ -131,7 +131,7 @@ class MainWindow(uiclass, baseclass):
     def plot_input_frequency(self):
 
         self.frequencies, self.fourier_transform = self.apply_fourier_transform()
-        self.original_fourier_transform = self.fourier_transform
+        self.original_fourier_transform = self.fourier_transform.copy()
 
         # Apply logarithmic transformation to y-axis values
         self.magnitude_dB = 20 * np.log10(abs(self.fourier_transform))
@@ -151,20 +151,20 @@ class MainWindow(uiclass, baseclass):
         canvas.draw()
 
     def plot_input_spectrograph(self):
-            self.plot_spectrogram(
-                canvas=self.input_spectrogram_graph.canvas,
-                signal=self.signal.y_vec,
-                sample_rate=self.signal.get_sampling_frequency(),
-                is_csv= False
-            )
+        self.plot_spectrogram(
+            canvas=self.input_spectrogram_graph.canvas,
+            signal=self.signal.y_vec,
+            sample_rate=self.signal.get_sampling_frequency(),
+            is_csv= False
+        )
 
     def plot_output_spectrograph(self):
-            self.plot_spectrogram(
-                canvas=self.output_spectrogram_graph.canvas,
-                signal=self.output.y_vec,
-                sample_rate=self.signal.get_sampling_frequency(),
-                is_csv= False
-            )
+        self.plot_spectrogram(
+            canvas=self.output_spectrogram_graph.canvas,
+            signal=self.output.y_vec,
+            sample_rate=self.signal.get_sampling_frequency(),
+            is_csv= False
+        )
 
 
     def apply_fourier_transform(self):
