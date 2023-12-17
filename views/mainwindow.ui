@@ -639,7 +639,7 @@ QlistView{
          </layout>
         </item>
         <item>
-         <widget class="PlotWidget" name="input_spectrogram_graph" native="true">
+         <widget class="SpectroWidget" name="input_spectrogram_graph" native="true">
           <property name="minimumSize">
            <size>
             <width>0</width>
@@ -648,9 +648,14 @@ QlistView{
           </property>
           <property name="maximumSize">
            <size>
-            <width>16777215</width>
-            <height>16777215</height>
+            <width>16777213</width>
+            <height>500</height>
            </size>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">SpectroWidget{
+background-color:#000000;
+}</string>
           </property>
          </widget>
         </item>
@@ -743,7 +748,7 @@ QlistView{
          </layout>
         </item>
         <item>
-         <widget class="PlotWidget" name="output_spectrogram_graph" native="true">
+         <widget class="SpectroWidget" name="output_spectrogram_graph" native="true">
           <property name="minimumSize">
            <size>
             <width>0</width>
@@ -752,8 +757,8 @@ QlistView{
           </property>
           <property name="maximumSize">
            <size>
-            <width>16777215</width>
-            <height>16777215</height>
+            <width>16777213</width>
+            <height>500</height>
            </size>
           </property>
          </widget>
@@ -779,7 +784,19 @@ QlistView{
          </widget>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="sliders_layout"/>
+         <widget class="QWidget" name="widget" native="true">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>150</height>
+           </size>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_8">
+           <item>
+            <layout class="QHBoxLayout" name="sliders_layout"/>
+           </item>
+          </layout>
+         </widget>
         </item>
        </layout>
       </item>
@@ -862,6 +879,12 @@ QlistView{
    <class>PlotWidget</class>
    <extends>QWidget</extends>
    <header>pyqtgraph</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>SpectroWidget</class>
+   <extends>QWidget</extends>
+   <header location="global">spectrowidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

@@ -8,8 +8,7 @@ from threading import Thread
 import numpy as np
 import math
 from PyQt6.QtCore import QTimer
-from scipy.signal import spectrogram, square, hamming,gaussian
-import matplotlib.pyplot as plt
+from scipy.signal import gaussian
 from pydub import AudioSegment
 
 from helpers.get_signal_from_file import get_signal_from_file
@@ -52,7 +51,6 @@ class MainWindow(uiclass, baseclass):
         self.mode = ModeType.ANIMALS
         self.slider_values = []
         self.lower_upper_freq_list = []
-        self.is_first_build = True
         self._initialize_signals_slots()
 
     def _initialize_signals_slots(self):
@@ -69,7 +67,7 @@ class MainWindow(uiclass, baseclass):
         self.musical_instruments_action.triggered.connect(lambda: self.change_mode(ModeType.MUSIC))
         self.animal_sounds_action.triggered.connect(lambda: self.change_mode(ModeType.ANIMALS))
         self.ecg_abnormalities_action.triggered.connect(lambda: self.change_mode(ModeType.ECG))
-        self.delete_action.triggered.connect(self.delete_all)
+        self.delete_action.triggered.connect(lambda: self.change_mode(self.mode))
         self.current_timer.timeout.connect(lambda: self.update_timer(isInput= True))
         self.output_current_timer.timeout.connect(lambda: self.update_timer(isInput= False))
         self.change_window(WindowType.RECTANGLE)
@@ -83,14 +81,15 @@ class MainWindow(uiclass, baseclass):
         self.original_fourier_transform = None
         self.fourier_transform = None
         self.slider_values = []
-        self.is_first_build = True
-        self.input_spectrogram_graph.clear()
-        self.output_spectrogram_graph.clear()
+        self.magnitude_dB = None
+        self.input_spectrogram_graph.canvas.axes.clear()
+        self.input_spectrogram_graph.canvas.draw()
+        self.output_spectrogram_graph.canvas.axes.clear()
+        self.output_spectrogram_graph.canvas.draw()
         self.frequency_graph.clear()
         self.input_signal_graph.clear()
         self.output_signal_graph.clear()
         
-
 
     def _on_slider_change(self, value, isInput, signal):
         if signal:
@@ -124,9 +123,10 @@ class MainWindow(uiclass, baseclass):
                 upper_freq = (i + 1) * (self.frequencies[-1] / 10)
                 freq_list.append([lower_freq, upper_freq])
             self.lower_upper_freq_list = freq_list     
-        self.perform_window()    
-
+        
+        self.plot_input_spectrograph()
         self.generate_output_signal()  
+        self.perform_window()   
 
     def plot_input_frequency(self):
 
@@ -144,54 +144,27 @@ class MainWindow(uiclass, baseclass):
         self.frequency_graph.setLabel('left', 'Magnitude (dB)' )
         self.frequency_graph.setLabel('bottom', 'Frequency', units='Hz')
 
+    def plot_spectrogram(self,canvas,signal,sample_rate,is_csv):
+        canvas.axes.clear()
+        canvas.axes.specgram(signal,Fs=sample_rate)
 
+        canvas.draw()
 
-    def plot_spectrograph(self):
+    def plot_input_spectrograph(self):
+            self.plot_spectrogram(
+                canvas=self.input_spectrogram_graph.canvas,
+                signal=self.signal.y_vec,
+                sample_rate=self.signal.get_sampling_frequency(),
+                is_csv= False
+            )
 
-        # Compute the spectrogram using scipy's spectrogram function
-        signal =  self.output 
-        amplitude = signal.y_vec
-        sampling_rate = signal.get_sampling_frequency()
-        _, _, Sxx = spectrogram(amplitude, fs=sampling_rate)
-
-        # Plot the spectrogram
-        np.seterr(divide='ignore')
-        plt.pcolormesh(10 * np.log10(Sxx), shading='auto')
-        plt.title('Spectrograph')
-        plt.xlabel('time')
-        plt.ylabel('frequency')
-        plt.colorbar(label='Intensity (dB)')  # Add colorbar
-
-        self.output_spectrogram_graph.clear()    
-
-        # Create an ImageItem to display the spectrogram
-        spectrogram_image = pg.ImageItem()
-
-        colormap = plt.get_cmap('viridis')
-        colormap._init()
-        lut = (colormap._lut * 255).view(np.ndarray)
-        spectrogram_image.setLookupTable(lut)
-
-        # Set the spectrogram data and scaling
-        spectrogram_image.setImage(10 * np.log10(Sxx.T), autoLevels=True, autoDownsample=True)
-        self.output_spectrogram_graph.addItem(spectrogram_image)
-
-        # Set labels for the axes
-        self.output_spectrogram_graph.setLabel('left', 'Frequency', units='Hz')
-        self.output_spectrogram_graph.setLabel('bottom', 'Time', units='s')
-
-        if self.is_first_build:
-            self.input_spectrogram_graph.clear()    
-            spectrogram_image = pg.ImageItem()
-            colormap = plt.get_cmap('viridis')
-            colormap._init()
-            lut = (colormap._lut * 255).view(np.ndarray)
-            spectrogram_image.setLookupTable(lut)
-            spectrogram_image.setImage(10 * np.log10(Sxx.T), autoLevels=True, autoDownsample=True)
-            self.input_spectrogram_graph.addItem(spectrogram_image)
-            self.input_spectrogram_graph.setLabel('left', 'Frequency', units='Hz')
-            self.input_spectrogram_graph.setLabel('bottom', 'Time', units='s')
-            self.is_first_build = False
+    def plot_output_spectrograph(self):
+            self.plot_spectrogram(
+                canvas=self.output_spectrogram_graph.canvas,
+                signal=self.output.y_vec,
+                sample_rate=self.signal.get_sampling_frequency(),
+                is_csv= False
+            )
 
 
     def apply_fourier_transform(self):
@@ -431,7 +404,7 @@ class MainWindow(uiclass, baseclass):
             self.output_slider.blockSignals(False)
             self.output_total_time.setText(
             f'{str(math.floor(self.output.x_vec[-1] / 60)).zfill(2)}:{str(math.floor(self.output.x_vec[-1]) % 60).zfill(2)}')
-            self.plot_spectrograph()
+            self.plot_output_spectrograph()
 
 
     def play_audio(self, isInput):
