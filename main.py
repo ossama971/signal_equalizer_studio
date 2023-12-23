@@ -275,8 +275,8 @@ class MainWindow(uiclass, baseclass):
         def ecg_logic():
             freq_list = [
             [10,30],
-            [30, 70],
-            [70,120],
+            [0, 10],
+            [0,12],
             [120,180],
         ]
             label_list = [ 'SVTA', 'AFIB', 'WPW', 'Normal']
@@ -372,8 +372,8 @@ class MainWindow(uiclass, baseclass):
         # Generate output using inverse Fourier transform of self.frequency and self.fourier_transform
         if self.fourier_transform is not None:
             
-            y_vec = np.int16(np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase))).real)  
-            x_vec = self.signal.x_vec
+            y_vec = np.int16(np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase[:len(self.fourier_transform)]))).real)  
+            x_vec = self.signal.x_vec[:len(y_vec)]
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
             self.output_signal_graph.setXRange(x_vec[0], x_vec[-1])
