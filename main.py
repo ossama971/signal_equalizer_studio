@@ -372,13 +372,14 @@ class MainWindow(uiclass, baseclass):
         # Generate output using inverse Fourier transform of self.frequency and self.fourier_transform
         if self.fourier_transform is not None:
             
-            y_vec = np.int16(np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase[:len(self.fourier_transform)]))).real)  
+            y_vec = (np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase[:len(self.fourier_transform)]))).real)  
             x_vec = self.signal.x_vec[:len(y_vec)]
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
             self.output_signal_graph.setXRange(x_vec[0], x_vec[-1])
             self.output_signal_graph.setYRange(min(y_vec), max(y_vec))
             if self.signal.audio is not None:
+                y_vec = np.int16(y_vec)
                 audio = AudioSegment(
                 y_vec.astype(np.int16).tobytes(),
                 frame_rate= None if self.signal.audio is None else self.signal.audio.frame_rate,
