@@ -175,7 +175,7 @@ class MainWindow(uiclass, baseclass):
     
 
         fourier_transform = np.fft.rfft(amplitude)
-        self.phase = np.angle(fourier_transform)
+        self.phase = np.angle(self.signal.y_vec)
         self.fourier_transform = np.abs(fourier_transform)
         tp_count = len(amplitude)
 
@@ -274,9 +274,9 @@ class MainWindow(uiclass, baseclass):
 
         def ecg_logic():
             freq_list = [
-            [10,30],
-            [0, 10],
-            [0,12],
+            [0,10],
+            [10, 20],
+            [20,120],
             [120,180],
         ]
             label_list = [ 'SVTA', 'AFIB', 'WPW', 'Normal']
@@ -356,12 +356,17 @@ class MainWindow(uiclass, baseclass):
             all_wave = np.concatenate((all_wave, result))
             window_plot = np.concatenate((window_plot, signal))
 
-
-        self.fourier_transform[:len(all_wave)] = all_wave
+        if len(all_wave) > len(self.fourier_transform):
+            self.fourier_transform = all_wave[:len(self.fourier_transform)]
+        else:    
+            self.fourier_transform[:len(all_wave)] = all_wave
         self.frequency_graph.clear()
-        self.frequency_graph.plot(self.frequencies[10:], abs(self.original_fourier_transform.real)[10:])
+        self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
         pen_c = pg.mkPen(color=(255, 0, 0))
-        self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot * (max(self.fourier_transform.real)/10),pen= pen_c)
+        if len(window_plot) > len(self.frequencies):
+            self.frequency_graph.plot(self.frequencies,window_plot[:len(self.frequencies)] * (max(self.fourier_transform.real)/10),pen= pen_c)
+        else:  
+            self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot * (max(self.fourier_transform.real)/10),pen= pen_c)
         self.generate_output_signal()
 
 
@@ -372,7 +377,7 @@ class MainWindow(uiclass, baseclass):
         # Generate output using inverse Fourier transform of self.frequency and self.fourier_transform
         if self.fourier_transform is not None:
             
-            y_vec = (np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase[:len(self.fourier_transform)]))).real)  
+            y_vec = (np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase[:len(self.fourier_transform)]))).real) * -1
             x_vec = self.signal.x_vec[:len(y_vec)]
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
