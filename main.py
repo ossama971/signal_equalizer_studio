@@ -168,7 +168,13 @@ class MainWindow(uiclass, baseclass):
 
 
     def apply_fourier_transform(self):
-        sampling_frequency = self.signal.audio.frame_rate if self.signal.audio else 1000
+        sampling_frequency = self.signal.audio.frame_rate if self.signal.audio else self.signal.get_sampling_frequency()
+
+        frequencies = np.fft.rfftfreq(len(self.signal.y_vec), d= 1/sampling_frequency)
+        fourier_transform = np.fft.rfft(self.signal.y_vec)
+
+        return frequencies, fourier_transform
+
         # Frequency domain representation
         amplitude = self.signal.y_vec
         
@@ -213,7 +219,7 @@ class MainWindow(uiclass, baseclass):
 
 
     def slider_value_changed(self, index, value):
-        self.slider_values[index].setText(f"{value}")
+        self.slider_values[index].setText(f"{value/10}")
         if self.signal:
             self.perform_window()  
 
@@ -241,8 +247,8 @@ class MainWindow(uiclass, baseclass):
                 new_vertical_layout = QVBoxLayout()
                 label = QLabel(label_list[i])
                 slider = QSlider()
-                slider.setRange(0,10)
-                slider.setValue(1)
+                slider.setRange(0,20)
+                slider.setValue(10)
                 value_label = QLabel('1')
                 self.slider_values.append(value_label)
                 new_vertical_layout.addWidget(label)
@@ -252,23 +258,23 @@ class MainWindow(uiclass, baseclass):
                 slider.valueChanged.connect(partial(self.slider_value_changed, i))
         def animals_logic():
             freq_list = [
-                [0,400],
-                [400,800],
-                [800,1400],
-                [1400,5000],
+                [0,450],
+                [450,1100],
+                [1100,3000],
+                [3000,9000],
              ]
-            label_list = [ 'Bee', 'Lion', 'Elephant', 'Horse']
+            label_list = [ 'Dogs', 'Wolves', 'Crow', 'Bat']
             self.lower_upper_freq_list = freq_list
             draw_sliders(label_list)
 
         def music_logic():
             freq_list = [
-            [0,250],
-            [250,800],
+             [0,200],
+            [200,500],
+            [400,800],
             [800,2200],
-            [2200,4600],
         ]
-            label_list = [ 'Kalimba', 'Piano', 'Guitar', 'Violin']
+            label_list = [ 'Kalimba', 'Guitar', 'Violin', 'Piccolo']
             self.lower_upper_freq_list = freq_list
             draw_sliders(label_list)
 
@@ -288,8 +294,8 @@ class MainWindow(uiclass, baseclass):
                 new_vertical_layout = QVBoxLayout()
                 label = QLabel(f'Range {i+1}')
                 slider = QSlider()
-                slider.setRange(0,10)
-                slider.setValue(1)
+                slider.setRange(0,20)
+                slider.setValue(10)
                 value_label = QLabel('1')
                 new_vertical_layout.addWidget(label)
                 new_vertical_layout.addWidget(slider)
@@ -333,22 +339,14 @@ class MainWindow(uiclass, baseclass):
         for i in range(total):
             lower_freq = self.lower_upper_freq_list[i][0]
             upper_freq = self.lower_upper_freq_list[i][1]
-            amplitude = int(self.slider_values[i].text())
+            amplitude = float(self.slider_values[i].text())
             freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
             fourier_transform_mask = self.original_fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
-            def gaussian_logic():
-                return gaussian(len(fourier_transform_mask), np.std(self.frequencies)) * amplitude
-            def rect_logic():
-                return np.ones(len(fourier_transform_mask)) * amplitude
-            def ham_logic():
-                return np.hamming(len(fourier_transform_mask)) * amplitude
-            def han_logic():
-                return np.hanning(len(fourier_transform_mask)) * amplitude
             functions = {
-                WindowType.GAUSSIAN: lambda : gaussian_logic(),
-                WindowType.RECTANGLE: lambda : rect_logic(),
-                WindowType.HAMMING: lambda : ham_logic(),
-                WindowType.HANNING: lambda : han_logic(),
+                WindowType.GAUSSIAN: lambda : gaussian(len(fourier_transform_mask), np.std(self.frequencies)) * amplitude,
+                WindowType.RECTANGLE: lambda : np.ones(len(fourier_transform_mask)) * amplitude,
+                WindowType.HAMMING: lambda : np.hamming(len(fourier_transform_mask)) * amplitude,
+                WindowType.HANNING: lambda : np.hanning(len(fourier_transform_mask)) * amplitude,
             }
             signal = functions[self.window_type]()
 
@@ -364,9 +362,9 @@ class MainWindow(uiclass, baseclass):
         self.frequency_graph.plot(self.frequencies, abs(self.original_fourier_transform.real))
         pen_c = pg.mkPen(color=(255, 0, 0))
         if len(window_plot) > len(self.frequencies):
-            self.frequency_graph.plot(self.frequencies,window_plot[:len(self.frequencies)] * (max(self.fourier_transform.real)/10),pen= pen_c)
+            self.frequency_graph.plot(self.frequencies,window_plot[:len(self.frequencies)] * (max(self.original_fourier_transform.real)/10),pen= pen_c)
         else:  
-            self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot * (max(self.fourier_transform.real)/10),pen= pen_c)
+            self.frequency_graph.plot(self.frequencies[:len(window_plot)],window_plot * (max(self.original_fourier_transform.real)/10),pen= pen_c)
         self.generate_output_signal()
 
 
@@ -376,9 +374,15 @@ class MainWindow(uiclass, baseclass):
         
         # Generate output using inverse Fourier transform of self.frequency and self.fourier_transform
         if self.fourier_transform is not None:
+
+            self.newSampleArr = np.fft.irfft(self.fourier_transform).real
+            y_vec = np.int16(self.newSampleArr) 
             
-            y_vec = (np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase[:len(self.fourier_transform)]))).real) * -1
-            x_vec = self.signal.x_vec[:len(y_vec)]
+            # y_vec = (np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase[:len(self.fourier_transform)]))).real) * -1
+            x_vec = self.signal.x_vec
+
+            # y_vec = (np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase[:len(self.fourier_transform)]))).real) * -1
+            # x_vec = self.signal.x_vec[:len(y_vec)]
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
             self.output_signal_graph.setXRange(x_vec[0], x_vec[-1])
