@@ -20,9 +20,8 @@ class Signal:
         if self.audio:
             sampling_frequency = self.audio.frame_rate
         else:
-            time_difference = np.diff(self.x_vec)
-            average_time_difference = np.mean(time_difference)
-            sampling_frequency = 1 / average_time_difference
+            time_difference = self.x_vec[1] - self.x_vec[0]
+            sampling_frequency = np.ceil(1 / time_difference)
 
         return sampling_frequency
 

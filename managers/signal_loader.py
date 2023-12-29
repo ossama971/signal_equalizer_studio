@@ -13,28 +13,28 @@ class ISignalLoader(ABC):
 
 class TextSignalLoader(ISignalLoader):
     def load(self, file_path: str) -> Signal:
-        data = pd.read_csv(file_path, sep=',',nrows=1000)
+        data = pd.read_csv(file_path)
         x = data.iloc[:, 0].values
         y = data.iloc[:, 1].values
         return Signal(x, y)
     
 class CSVSignalLoader(ISignalLoader):
     def load(self, file_path: str) -> Signal:
-        data = pd.read_csv(file_path, skiprows=2,nrows=1000)
+        data = pd.read_csv(file_path)
         x = data.iloc[:, 0].values
         y = data.iloc[:, 1].values
         return Signal(x, y)
 
 class ExcelXSignalLoader(ISignalLoader):
     def load(self, file_path: str) -> Signal:
-        data = pd.read_excel(file_path, header=None,nrows=1000)
+        data = pd.read_excel(file_path)
         x = data.iloc[:, 0].values
         y = data.iloc[:, 1].values
         return Signal(x, y)
     
 class ExcelSignalLoader(ISignalLoader):
     def load(self, file_path: str) -> Signal:
-        data = pd.read_excel(file_path, header=None, engine="xlrd",nrows=1000)
+        data = pd.read_excel(file_path)
         x = data.iloc[:, 0].values
         y = data.iloc[:, 1].values
         return Signal(x, y)

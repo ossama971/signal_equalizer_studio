@@ -170,8 +170,9 @@ class MainWindow(uiclass, baseclass):
     def apply_fourier_transform(self):
         sampling_frequency = self.signal.audio.frame_rate if self.signal.audio else self.signal.get_sampling_frequency()
 
-        frequencies = np.fft.rfftfreq(len(self.signal.y_vec), d= 1/sampling_frequency)
         fourier_transform = np.fft.rfft(self.signal.y_vec)
+        frequencies = np.fft.rfftfreq(len(self.signal.y_vec), d= 1/sampling_frequency)
+        self.phase = np.angle(fourier_transform)
 
         return frequencies, fourier_transform
 
@@ -181,7 +182,6 @@ class MainWindow(uiclass, baseclass):
     
 
         fourier_transform = np.fft.rfft(amplitude)
-        self.phase = np.angle(self.signal.y_vec)
         self.fourier_transform = np.abs(fourier_transform)
         tp_count = len(amplitude)
 
@@ -375,14 +375,14 @@ class MainWindow(uiclass, baseclass):
         # Generate output using inverse Fourier transform of self.frequency and self.fourier_transform
         if self.fourier_transform is not None:
 
-            self.newSampleArr = np.fft.irfft(self.fourier_transform).real
-            y_vec = np.int16(self.newSampleArr) 
-            
-            # y_vec = (np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase[:len(self.fourier_transform)]))).real) * -1
-            x_vec = self.signal.x_vec
+            # self.newSampleArr = np.fft.irfft(self.fourier_transform).real
+            # y_vec = np.int16(self.newSampleArr) 
+            data = (np.abs(self.fourier_transform) * np.exp(1j  * self.phase[:len(self.fourier_transform)]))
+            y_vec = (np.fft.irfft(data).real) 
+            # x_vec = self.signal.x_vec
 
             # y_vec = (np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase[:len(self.fourier_transform)]))).real) * -1
-            # x_vec = self.signal.x_vec[:len(y_vec)]
+            x_vec = self.signal.x_vec[:len(y_vec)]
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
             self.output_signal_graph.setXRange(x_vec[0], x_vec[-1])
