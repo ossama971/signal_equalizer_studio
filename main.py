@@ -104,10 +104,6 @@ class MainWindow(uiclass, baseclass):
         self.input_signal_graph.plot(self.signal.x_vec, self.signal.y_vec, pen=pen_c)
         self.input_signal_graph.setXRange(self.signal.x_vec[0], self.signal.x_vec[-1])
         self.input_signal_graph.setYRange(min(self.signal.y_vec), max(self.signal.y_vec))
-
-        # plot initial output time graph
-        # self.output_signal_graph.plot(self.signal.x_vec, self.signal.y_vec, pen=pen_c) 
-
         self.input_slider.setMinimum(0)
         self.input_slider.setMaximum(int(self.signal.x_vec[-1] * 1000))
         self.input_slider.setValue(0)
@@ -175,25 +171,6 @@ class MainWindow(uiclass, baseclass):
         self.phase = np.angle(fourier_transform)
 
         return frequencies, fourier_transform
-
-        # Frequency domain representation
-        amplitude = self.signal.y_vec
-        
-    
-
-        fourier_transform = np.fft.rfft(amplitude)
-        self.fourier_transform = np.abs(fourier_transform)
-        tp_count = len(amplitude)
-
-        # values = np.arange(int(tp_count))
-
-        # time_period = tp_count / sampling_frequency
-
-        # frequencies = values / time_period
-        frequencies = np.fft.rfftfreq(tp_count, 1 / sampling_frequency)
-
-        return frequencies, fourier_transform
-
 
     def play_time_input(self):
         if self.signal.audio:
@@ -374,14 +351,8 @@ class MainWindow(uiclass, baseclass):
         
         # Generate output using inverse Fourier transform of self.frequency and self.fourier_transform
         if self.fourier_transform is not None:
-
-            # self.newSampleArr = np.fft.irfft(self.fourier_transform).real
-            # y_vec = np.int16(self.newSampleArr) 
             data = (np.abs(self.fourier_transform) * np.exp(1j  * self.phase[:len(self.fourier_transform)]))
             y_vec = (np.fft.irfft(data).real) 
-            # x_vec = self.signal.x_vec
-
-            # y_vec = (np.fft.irfft((self.fourier_transform * np.exp(1j  * self.phase[:len(self.fourier_transform)]))).real) * -1
             x_vec = self.signal.x_vec[:len(y_vec)]
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
