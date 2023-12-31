@@ -1,33 +1,22 @@
-from scipy.io import wavfile
-import numpy as np
+import csv
 
-def get_frequency_range(wav_file):
-    sample_rate, data = wavfile.read(wav_file)
-    
-    if len(data.shape) > 1:  # If the WAV file has multiple channels, take the first channel
-        data = data[:, 0]
+def transform_rows_to_columns(input_file, output_file):
+    with open(input_file, 'r') as infile, open(output_file, 'w', newline='') as outfile:
+        reader = csv.reader(infile)
+        writer = csv.writer(outfile)
 
-    duration = len(data) / sample_rate
-    frequencies = np.fft.fft(data)
-    magnitudes = np.abs(frequencies)
-    freqs = np.fft.fftfreq(len(frequencies))
+        rows = list(reader)
 
-    # Find the index corresponding to the maximum magnitude
-    max_magnitude_index = np.argmax(magnitudes)
-    max_freq = freqs[max_magnitude_index]
-    max_freq_hz = abs(max_freq * sample_rate)
+        if len(rows) != 2:
+            print("Error: Input file should have exactly two rows.")
+            return
 
-    # Find the minimum and maximum frequencies
-    min_freq_hz = abs(freqs[1] * sample_rate)  # Excluding 0 Hz
-    max_freq_hz = max_freq_hz if max_freq_hz != 0 else sample_rate / 2  # Nyquist frequency
+        data_transposed = zip(rows[0], rows[1])  # Combining rows into two columns
 
-    return min_freq_hz, max_freq_hz, duration
+        for row in data_transposed:
+            writer.writerow(row)
 
-# Replace 'your_file.wav' with the path to your WAV file
-file_path = 'filtered_3_PICCOLO.wav'
-min_freq, max_freq, duration = get_frequency_range(file_path)
+    print(f"Data transformed into two columns and saved to '{output_file}'")
 
-print(f"Frequency Range in {file_path}:")
-print(f"Minimum Frequency: {min_freq:.2f} Hz")
-print(f"Maximum Frequency: {max_freq:.2f} Hz")
-print(f"Duration: {duration:.2f} seconds")
+# Replace 'input.csv' and 'output.csv' with your file names
+transform_rows_to_columns('Abnormality 1.csv', 'output.csv')

@@ -51,6 +51,7 @@ class MainWindow(uiclass, baseclass):
         self.mode = ModeType.ANIMALS
         self.slider_values = []
         self.lower_upper_freq_list = []
+        self.file_name = None
         self._initialize_signals_slots()
 
     def _initialize_signals_slots(self):
@@ -89,15 +90,14 @@ class MainWindow(uiclass, baseclass):
         self.frequency_graph.clear()
         self.input_signal_graph.clear()
         self.output_signal_graph.clear()
-        
-
+    
     def _on_slider_change(self, value, isInput, signal):
         if signal:
             signal.current_time = value / 1000
             self.update_timer(isInput=isInput)
 
     def _import_signal_file(self):
-        self.signal: Signal = get_signal_from_file(self)
+        self.signal, self.file_name = get_signal_from_file(self)
 
         # plot time graph
         pen_c = pg.mkPen(color=(255, 255, 255))
@@ -118,6 +118,29 @@ class MainWindow(uiclass, baseclass):
                 lower_freq = i * (self.frequencies[-1] / 10)
                 upper_freq = (i + 1) * (self.frequencies[-1] / 10)
                 freq_list.append([lower_freq, upper_freq])
+            self.lower_upper_freq_list = freq_list  
+        abnormalities_dict = {
+        'Abnormality 1': [
+            [0,5],
+            [5, 7],
+            [7,9],
+            [120,180],
+        ],
+        'Abnormality 2': [
+            [0,1],
+            [1, 10],
+            [12,14],
+            [120,180],
+        ],
+        'Abnormality 3':[
+            [0,1],
+            [1, 3],
+            [3,12],
+            [120,180],
+        ],
+        }
+        if self.mode == ModeType.ECG:
+            freq_list = abnormalities_dict[self.file_name]
             self.lower_upper_freq_list = freq_list     
         
         self.plot_input_spectrograph()
@@ -256,14 +279,7 @@ class MainWindow(uiclass, baseclass):
             draw_sliders(label_list)
 
         def ecg_logic():
-            freq_list = [
-            [0,10],
-            [10, 20],
-            [20,120],
-            [120,180],
-        ]
-            label_list = [ 'SVTA', 'AFIB', 'WPW', 'Normal']
-            self.lower_upper_freq_list = freq_list
+            label_list = [ 'Abnormality 1', 'Abnormality 2', 'Abnormality 3', 'Normal']
             draw_sliders(label_list)
 
         def uniform_logic():
@@ -317,6 +333,8 @@ class MainWindow(uiclass, baseclass):
             lower_freq = self.lower_upper_freq_list[i][0]
             upper_freq = self.lower_upper_freq_list[i][1]
             amplitude = float(self.slider_values[i].text())
+            if self.mode == ModeType.ECG:
+                amplitude = 2 - amplitude
             freq_range_mask = self.frequencies[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
             fourier_transform_mask = self.original_fourier_transform[(self.frequencies >= lower_freq) & (self.frequencies <= upper_freq)]
             functions = {
@@ -351,9 +369,15 @@ class MainWindow(uiclass, baseclass):
         
         # Generate output using inverse Fourier transform of self.frequency and self.fourier_transform
         if self.fourier_transform is not None:
-            data = (np.abs(self.fourier_transform) * np.exp(1j  * self.phase[:len(self.fourier_transform)]))
-            y_vec = (np.fft.irfft(data).real) 
-            x_vec = self.signal.x_vec[:len(y_vec)]
+            if self.mode == ModeType.ECG:
+                data = (np.abs(self.fourier_transform) * np.exp(1j  * self.phase[:len(self.fourier_transform)]))
+                y_vec = (np.fft.irfft(data).real) 
+                x_vec = self.signal.x_vec[:len(y_vec)]
+            else:    
+                data = np.fft.irfft(self.fourier_transform).real
+                y_vec = np.int16(data) 
+                x_vec = self.signal.x_vec[:len(y_vec)]
+            
             self.output_signal_graph.plot(x_vec, y_vec, pen=pen_c)
             self.output_signal_graph.repaint()
             self.output_signal_graph.setXRange(x_vec[0], x_vec[-1])

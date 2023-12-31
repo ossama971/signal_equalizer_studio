@@ -11,6 +11,7 @@ def get_signal_from_file(app):
             return None
         # check the type of signal file
         file_type = file_path.split('.')[-1]
+        file_name = file_path.split('.')[0].split('/')[-1]
 
         # Picking the right loader from file_type
         loader: ISignalLoader
@@ -29,4 +30,4 @@ def get_signal_from_file(app):
             
         
         signal: Signal = loader.load(file_path)
-        return signal
+        return signal, file_name
