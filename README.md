@@ -1,5 +1,5 @@
 # Signal Equalizer Studio
-![Image-Equalizer]()
+![Image-Equalizer](https://github.com/ossama971/signal_equalizer_studio/blob/main/imgs/UI.png)
 
 Signal Equalizer Studio is a versatile desktop application designed for use in the music and speech industry, as well as various biomedical applications such as hearing aid abnormalities detection. The application allows users to open a signal and manipulate the magnitude of specific frequency components through intuitive sliders, offering a range of modes to suit different use cases.
 
